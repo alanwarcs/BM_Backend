@@ -2,6 +2,10 @@ const Staff = require('../models/Staff');
 const Organization = require('../models/Organization')
 const bcrypt = require('bcrypt'); // For password hashing
 const jwt = require('jsonwebtoken'); // For generating JWT tokens
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const sendEmail = require('../utils/sendEmailUtils');
+require('dotenv').config();
 
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -82,6 +86,19 @@ exports.signup = async (req, res) => {
         // Generate verification URL
         const verificationURL = `http://yourdomain.com/verify-email/${verificationToken}`;
 
+        // Send verification email using the HTML template
+        await sendEmail({
+            to: normalizedEmail,
+            subject: 'Email Verification',
+            templatePath: '../templates/verification_email.html',
+            templateData: { name, verificationURL }
+        });
+
+        // Respond with success message and token
+        res.status(201).json({
+            message: 'Registration successful! Please check your email for verification.',
+            token
+        });
 
     } catch (error) {
         res.status(500).json({

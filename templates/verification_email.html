@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 0px; overflow: hidden; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+        .header { background-color: #286fb4; color: #ffffff; padding: 20px; text-align: center; }
+        .header h1 { margin: 0; }
+        .content { padding: 20px; }
+        .content p { font-size: 16px; line-height: 1.5; }
+        .footer { background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 14px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Nexus</h1>
+        </div>
+        <div class="content">
+            <p>Hello ${name},</p>
+            <p>Thank you for registering with us. To complete your registration, please verify your email address by clicking the button below:</p>
+            <a href="${verificationURL}" style="display: inline-block; padding: 10px 20px; margin: 20px 0; font-size: 16px; color: #ffffff; background-color: #286fb4; text-decoration: none; border-radius: 5px; text-align: center;">Verify Your Email</a>
+            <p>Please note that this link will expire in 1 day. If you did not request this verification, please ignore this email.</p>
+            <p>Best regards,<br>Nexus</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2024 Nexus. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
