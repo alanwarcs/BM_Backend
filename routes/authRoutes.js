@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/signup', signup);
 
 // Route for email verification
-// router.get('/verify-email/:token', verifyEmail);
+router.get('/verify-email/:token', verifyEmail);
 
 // Route for user signin
 router.post('/signin', signin);

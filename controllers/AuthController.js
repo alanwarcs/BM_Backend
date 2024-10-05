@@ -116,6 +116,15 @@ exports.signin = async (req, res) => {
         return res.status(400).json({ error: 'Email and password are required.' });
     }
 
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: 'Invalid email format.' });
+    }
+
+    if (!passwordRegex.test(password)) {
+        return res.status(400).json({
+            message: 'Password must be at least 8 characters long, and include uppercase letters, lowercase letters, numbers, and symbols.'
+        });
+    }
     try {
         // Find the user by email
         const user = await Staff.findOne({ email });
@@ -145,4 +154,14 @@ exports.signin = async (req, res) => {
             error: error.message // Send the error message in the response
         });
     }
+}
+
+exports.setupAccount = async (req, res) => {
+    const { address, country, state, pin, isGst, gstin, timeZone, dateFormat, currency, theme, } = req.body;
+
+    // Check if user info is available in the request
+    if (!req.user) {
+        return res.status(401).json({ error: 'User information is incomplete.' });
+    }
+
 }
