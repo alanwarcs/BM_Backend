@@ -65,7 +65,7 @@ exports.signup = async (req, res) => {
 
         // Create Staff
         staff = new Staff({
-            organization: organization._id,
+            businessId: organization._id,
             name: name,
             email: normalizedEmail,
             phone: phone,
@@ -102,7 +102,46 @@ exports.signup = async (req, res) => {
 
     } catch (error) {
         res.status(500).json({
-            message: 'Registration failed, please try again.',
+            message: 'Signup failed, please try again.',
+            error: error.message // Send the error message in the response
+        });
+    }
+}
+
+exports.signin = async (req, res) => {
+    const { email, password } = req.body;
+
+    //Email and Password Validatore
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    try {
+        // Find the user by email
+        const user = await Staff.findOne({ email });
+
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid email or password.' });
+        }
+
+        // Compare the password
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
+            return res.status(400).json({ error: 'Invalid email or password.' });
+        }
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user._id, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.status(200).json({ message: 'Signin successful!', token });
+    } catch (error) {
+        res.status(500).json({
+            message: 'Signin failed, please try again.',
             error: error.message // Send the error message in the response
         });
     }
