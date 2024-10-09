@@ -13,6 +13,7 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Password complexity validation regex
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
+// Signup and Generate Tocken method
 exports.signup = async (req, res) => {
     const { name, organizationName, email, phone, password, designation, termsAccepted } = req.body;
 
@@ -108,6 +109,7 @@ exports.signup = async (req, res) => {
     }
 }
 
+// Signin and Generate Tocken method
 exports.signin = async (req, res) => {
     const { email, password } = req.body;
 
@@ -156,12 +158,70 @@ exports.signin = async (req, res) => {
     }
 }
 
+//Setup Acoount Before Subsription and Payment
 exports.setupAccount = async (req, res) => {
-    const { address, country, state, pin, isGst, gstin, timeZone, dateFormat, currency, theme, } = req.body;
+    try {
+        const { address, country, state, pin, isGst, gstin, timeZone, dateFormat, currency, theme } = req.body;
 
-    // Check if user info is available in the request
-    if (!req.user) {
-        return res.status(401).json({ error: 'User information is incomplete.' });
+        // Check if user info is available in the request (assuming req.user contains authenticated user details)
+        if (!req.user) {
+            return res.status(401).json({ error: 'User information is incomplete.' });
+        }
+
+        const userId = req.user._id;
+
+        // Validate required fields
+        if (!address || !country || !state || !pin || !timeZone || !dateFormat || !currency) {
+            return res.status(400).json({ error: 'All required fields must be provided.' });
+        }
+
+        // Validate GSTIN if GST is selected
+        if (isGst && !gstin) {
+            return res.status(400).json({ error: 'GSTIN is required if GST is registered.' });
+        }
+
+        // Find the staff linked to the user
+        const staff = await Staff.findOne({ _id: userId }).populate('businessId');
+        if (!staff) {
+            return res.status(404).json({ error: 'Staff member not found.' });
+        }
+
+        // Check if organization exists and update organization details
+        const organization = await Organization.findOne({ _id: staff.businessId });
+        if (!organization) {
+            return res.status(404).json({ error: 'Organization not found.' });
+        }
+
+        // Update organization with validated data
+        organization.address = address;
+        organization.country = country;
+        organization.region = state;
+        organization.pincode = pin;
+        organization.isGSTRegistered = isGst;
+        organization.GSTIN = gstin;
+        organization.preferences = {
+            timeZone: timeZone,
+            dateFormat: dateFormat,
+            currency: currency
+        };
+        organization.isSetupCompleted = true; // Mark setup as complete
+
+        // Save the updated organization
+        await organization.save();
+
+        // Update staff preferences (theme)
+        staff.preferences.theme = theme || staff.preferences.theme;
+
+        // Save the updated staff
+        await staff.save();
+
+        return res.status(200).json({
+            message: 'Account setup completed successfully!',
+            organization,
+            staff
+        });
+    } catch (error) {
+        console.error('Error in setupAccount:', error);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
-
-}
+};

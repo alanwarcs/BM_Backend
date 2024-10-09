@@ -19,6 +19,7 @@ const organizationSchema = new mongoose.Schema({
     isBlocked: { type: Boolean, default: false },
     isPaid: { type: Boolean, default: false },
     termsAccepted: { type: Boolean, default: false },
+    isSetupCompleted: { type: Boolean, default: false },
     preferences: {
         dateFormat: { type: String, default: 'MM-DD-YYYY' },
         timeZone: { type: String },

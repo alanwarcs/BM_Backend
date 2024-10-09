@@ -1,7 +1,9 @@
 // routes/authRoutes.js
 
 const express = require('express');
-const { signup, signin, verifyEmail } = require('../controllers/AuthController');
+const { signup, signin, verifyEmail, setupAccount } = require('../controllers/AuthController');
+const authMiddleware = require('../middleware/authMiddleware'); // Assuming you have an auth middleware to protect routes
+
 
 const router = express.Router();
 
@@ -13,5 +15,8 @@ router.get('/verify-email/:token', verifyEmail);
 
 // Route for user signin
 router.post('/signin', signin);
+
+// Protected route for account setup (requires authentication)
+router.post('/setup', setupAccount);//Pending to add 'authMiddleware,'
 
 module.exports = router;
