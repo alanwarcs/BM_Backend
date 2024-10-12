@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const authRoutes = require('./routes/authRoutes')
+const authRoutes = require('./routes/authRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const planRoutes = require('./routes/planRoutes');
 
 // Initialize dotenv to load environment variables
 dotenv.config();
@@ -29,6 +31,9 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 
 app.use('/api/payment', paymentRoutes);
+
+app.use('/api/plans', planRoutes);
+
 // Environment variable for PORT or default to 3000
 const PORT = process.env.PORT || 3000;
 
