@@ -27,6 +27,8 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+
+app.use('/api/payment', paymentRoutes);
 // Environment variable for PORT or default to 3000
 const PORT = process.env.PORT || 3000;
 
