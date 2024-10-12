@@ -14,6 +14,11 @@ const razorpay = new Razorpay({
 exports.createOrder = async (req, res) => {
   const { amount, currency } = req.body;
 
+  // Check if user info is available in the request (assuming req.user contains authenticated user details)
+  if (!req.user) {
+    return res.status(401).json({ error: 'User information is incomplete.' });
+  }
+
   try {
     const options = {
       amount: amount * 100, // Amount in paise
@@ -40,6 +45,11 @@ exports.verifyPayment = async (req, res) => {
 
   if (expectedSignature !== razorpay_signature) {
     return res.status(400).json({ success: false, message: 'Payment verification failed' });
+  }
+
+  // Check if user info is available in the request (assuming req.user contains authenticated user details)
+  if (!req.user) {
+    return res.status(401).json({ error: 'User information is incomplete.' });
   }
 
   // If the payment is verified successfully, store the payment history
