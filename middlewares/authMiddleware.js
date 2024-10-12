@@ -1,27 +1,31 @@
 const jwt = require('jsonwebtoken');
+const Staff = require('../models/Staff'); // Assuming Staff model is used for user details
 
-const authMiddleware = (req, res, next) => {
+exports.authMiddleware = async (req, res, next) => {
     try {
-        // Get the token from the cookies (or alternatively from headers if required)
-        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        // Extract token from headers or cookies (depending on your setup)
+        const token = req.headers.authorization?.split(' ')[1] || req.cookies.token;
 
-        // If no token is provided, send an unauthorized error
         if (!token) {
             return res.status(401).json({ error: 'Access denied. No token provided.' });
         }
 
-        // Verify the token using the JWT secret
+        // Verify the JWT token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (!decoded) {
+            return res.status(401).json({ error: 'Invalid token.' });
+        }
+        // Find the staff by decoded ID and attach it to the request
+        const user = await Staff.findById(decoded.userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
 
-        // Attach the decoded token (user data) to the request object
-        req.user = decoded;
+        req.user = user; // Attach user info to the request
+        next(); // Pass control to the next handler
 
-        // Proceed to the next middleware or route handler
-        next();
     } catch (error) {
-        console.error('Authentication error:', error);
-        return res.status(401).json({ error: 'Invalid or expired token.' });
+        console.error('Error in authMiddleware:', error);
+        return res.status(500).json({ error: 'Authentication failed.' });
     }
 };
-
-module.exports = authMiddleware;
