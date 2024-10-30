@@ -35,7 +35,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/plans', planRoutes);
 
 // Environment variable for PORT or default to 3000
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Start the server
 app.listen(PORT, async () => {
