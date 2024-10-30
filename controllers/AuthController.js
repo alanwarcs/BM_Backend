@@ -39,13 +39,13 @@ exports.signup = async (req, res) => {
         // Find Organization
         let organization = await Organization.findOne({ email: normalizedEmail });
         if (organization) {
-            return res.status(400).json({ error: 'You are already registered.' });
+            return res.status(400).json({ message: 'You are already registered.' });
         }
 
         // Find Staff
         let staff = await Staff.findOne({ email: normalizedEmail });
         if (staff) {
-            return res.status(400).json({ error: 'You are already associated with an organization and cannot create another one.' });
+            return res.status(400).json({ message: 'You are already associated with an organization and cannot create another one.' });
         }
 
         // Hash the password
@@ -115,7 +115,7 @@ exports.signin = async (req, res) => {
 
     //Email and Password Validatore
     if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required.' });
+        return res.status(400).json({ message: 'Email and password are required.' });
     }
 
     if (!emailRegex.test(email)) {
@@ -132,14 +132,14 @@ exports.signin = async (req, res) => {
         const user = await Staff.findOne({ email });
 
         if (!user) {
-            return res.status(400).json({ error: 'Invalid email or password.' });
+            return res.status(400).json({ message: 'Invalid email or password.' });
         }
 
         // Compare the password
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return res.status(400).json({ error: 'Invalid email or password.' });
+            return res.status(400).json({ message: 'Invalid email or password.' });
         }
 
         // Generate JWT token
