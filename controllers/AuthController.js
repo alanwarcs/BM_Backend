@@ -19,7 +19,7 @@ exports.signup = async (req, res) => {
 
     // Required fields Validator
     if (!name || !organizationName || !password || !email || !phone || !designation || !termsAccepted) {
-        return res.status(400).json({ error: 'All fields are required, and you must accept the terms.' });
+        return res.status(400).json({ message: 'All fields are required, and you must accept the terms.' });
     }
 
     if (!emailRegex.test(email)) {
@@ -104,7 +104,7 @@ exports.signup = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             message: 'Signup failed, please try again.',
-            error: error.message // Send the error message in the response
+            message: error.message // Send the error message in the response
         });
     }
 }
@@ -153,7 +153,7 @@ exports.signin = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             message: 'Signin failed, please try again.',
-            error: error.message // Send the error message in the response
+            message: error.message // Send the error message in the response
         });
     }
 }
@@ -165,31 +165,31 @@ exports.setupAccount = async (req, res) => {
 
         // Check if user info is available in the request (assuming req.user contains authenticated user details)
         if (!req.user) {
-            return res.status(401).json({ error: 'User information is incomplete.' });
+            return res.status(401).json({ message: 'User information is incomplete.' });
         }
 
         const userId = req.user._id;
 
         // Validate required fields
         if (!address || !country || !state || !pin || !timeZone || !dateFormat || !currency) {
-            return res.status(400).json({ error: 'All required fields must be provided.' });
+            return res.status(400).json({ message: 'All required fields must be provided.' });
         }
 
         // Validate GSTIN if GST is selected
         if (isGst && !gstin) {
-            return res.status(400).json({ error: 'GSTIN is required if GST is registered.' });
+            return res.status(400).json({ message: 'GSTIN is required if GST is registered.' });
         }
 
         // Find the staff linked to the user
         const staff = await Staff.findOne({ _id: userId }).populate('businessId');
         if (!staff) {
-            return res.status(404).json({ error: 'Staff member not found.' });
+            return res.status(404).json({ message: 'Staff member not found.' });
         }
 
         // Check if organization exists and update organization details
         const organization = await Organization.findOne({ _id: staff.businessId });
         if (!organization) {
-            return res.status(404).json({ error: 'Organization not found.' });
+            return res.status(404).json({ message: 'Organization not found.' });
         }
 
         // Update organization with validated data
@@ -200,7 +200,7 @@ exports.setupAccount = async (req, res) => {
         organization.isGSTRegistered = isGst;
         organization.GSTIN = gstin;
         organization.preferences = {
-            timeZone: timeZone,
+            timeZone: timeZonex,
             dateFormat: dateFormat,
             currency: currency
         };
@@ -222,6 +222,6 @@ exports.setupAccount = async (req, res) => {
         });
     } catch (error) {
         console.error('Error in setupAccount:', error);
-        return res.status(500).json({ error: 'Internal server error.' });
+        return res.status(500).json({ message: 'Internal server error.' });
     }
 };
