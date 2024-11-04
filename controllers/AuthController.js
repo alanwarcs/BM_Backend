@@ -200,7 +200,7 @@ exports.setupAccount = async (req, res) => {
         organization.isGSTRegistered = isGst;
         organization.GSTIN = gstin;
         organization.preferences = {
-            timeZone: timeZonex,
+            timeZone: timeZone,
             dateFormat: dateFormat,
             currency: currency
         };
