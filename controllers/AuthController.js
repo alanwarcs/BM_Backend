@@ -83,7 +83,13 @@ exports.signup = async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
-
+        // Set the JWT as an HTTPOnly cookie
+        res.cookie('token', token, {
+            httpOnly: true, // Prevent access to this cookie via JavaScript
+            secure: process.env.NODE_ENV === 'production', // Ensure the cookie is sent over HTTPS in production
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours expiration
+        });
+        
         // Generate verification URL
         const verificationURL = `http://yourdomain.com/verify-email/${verificationToken}`;
 
@@ -98,7 +104,6 @@ exports.signup = async (req, res) => {
         // Respond with success message and token
         res.status(201).json({
             message: 'Registration successful! Please check your email for verification.',
-            token
         });
 
     } catch (error) {
@@ -149,7 +154,14 @@ exports.signin = async (req, res) => {
             { expiresIn: '24h' }
         );
 
-        res.status(200).json({ message: 'Signin successful!', token });
+        // Set the JWT as an HTTPOnly cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 24 * 60 * 60 * 1000
+        });
+
+        res.status(200).json({ message: 'Signin successful!' });
     } catch (error) {
         res.status(500).json({
             message: 'Signin failed, please try again.',
@@ -224,4 +236,12 @@ exports.setupAccount = async (req, res) => {
         console.error('Error in setupAccount:', error);
         return res.status(500).json({ message: 'Internal server error.' });
     }
+};
+
+exports.signout = (req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production'
+    });
+    res.status(200).json({ message: 'Logout successful!' });
 };
