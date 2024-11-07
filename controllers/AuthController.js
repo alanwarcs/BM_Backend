@@ -252,12 +252,11 @@ exports.validateUser = async (req, res) => {
     }
 };
 
-
-
 exports.signout = (req, res) => {
     res.clearCookie('token', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production'
+        secure: process.env.NODE_ENV === 'production', // Ensure secure cookies in production
+        sameSite: 'Strict' // Prevent cross-site requests with the token
     });
     res.status(200).json({ message: 'Logout successful!' });
 };
