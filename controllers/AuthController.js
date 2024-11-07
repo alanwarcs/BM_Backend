@@ -238,6 +238,22 @@ exports.setupAccount = async (req, res) => {
     }
 };
 
+exports.validateUser = async (req, res) => {
+    try {
+        // Since authMiddleware attaches user to req.user, we just need to respond
+        if (req.user) {
+            return res.status(200).json({ message: 'Token is valid.', user: req.user });
+        } else {
+            return res.status(401).json({ error: 'Authentication failed. User not found.' });
+        }
+    } catch (error) {
+        console.error('Error in validateUser:', error);
+        return res.status(500).json({ error: 'Unable to validate token.' });
+    }
+};
+
+
+
 exports.signout = (req, res) => {
     res.clearCookie('token', {
         httpOnly: true,
