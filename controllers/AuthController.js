@@ -89,7 +89,7 @@ exports.signup = async (req, res) => {
             secure: process.env.NODE_ENV === 'production', // Ensure the cookie is sent over HTTPS in production
             maxAge: 24 * 60 * 60 * 1000 // 24 hours expiration
         });
-        
+
         // Generate verification URL
         const verificationURL = `http://yourdomain.com/verify-email/${verificationToken}`;
 
@@ -240,15 +240,30 @@ exports.setupAccount = async (req, res) => {
 
 exports.validateUser = async (req, res) => {
     try {
-        // Since authMiddleware attaches user to req.user, we just need to respond
         if (req.user) {
-            return res.status(200).json({ message: 'Token is valid.', user: req.user });
+            // Access populated user and organization details directly from req.user
+            return res.status(200).json({
+                message: 'Token is valid.',
+                user: {
+                    id: req.user._id,
+                    name: req.user.name,
+                    email: req.user.email,
+                    photo: req.user.photo,
+                    organization: {
+                        businessId: req.user.businessId._id,
+                        name: req.user.businessId.name,
+                        logo: req.user.businessId.logo,
+                        isSetupCompleted: req.user.businessId.isSetupCompleted,
+                        isPaid: req.user.businessId.isPaid,
+                    }
+                }
+            });
         } else {
-            return res.status(401).json({ error: 'Authentication failed. User not found.' });
+            return res.status(401).json({ message: 'Authentication failed. User not found.' });
         }
     } catch (error) {
         console.error('Error in validateUser:', error);
-        return res.status(500).json({ error: 'Unable to validate token.' });
+        return res.status(500).json({ message: 'Unable to validate token.' });
     }
 };
 
