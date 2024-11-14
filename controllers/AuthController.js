@@ -180,7 +180,7 @@ exports.setupAccount = async (req, res) => {
             return res.status(401).json({ message: 'User information is incomplete.' });
         }
 
-        const userId = req.user._id;
+        const userId = req.user.id;
 
         // Validate required fields
         if (!address || !country || !state || !pin || !timeZone || !dateFormat || !currency) {
@@ -195,7 +195,7 @@ exports.setupAccount = async (req, res) => {
         // Find the staff linked to the user
         const staff = await Staff.findOne({ _id: userId }).populate('businessId');
         if (!staff) {
-            return res.status(404).json({ message: 'Staff member not found.' });
+            return res.status(404).json({ message: `Staff member not found.` });
         }
 
         // Check if organization exists and update organization details
