@@ -2,6 +2,7 @@
 const Razorpay = require('razorpay');
 const PaymentHistory = require('../models/PaymentHistory');
 const SubscriptionHistory = require('../models/SubscriptionHistory');
+const Plan = require('../models/Plans');
 const crypto = require('crypto');
 
 // Initialize Razorpay instance
@@ -12,76 +13,117 @@ const razorpay = new Razorpay({
 
 // Create Order
 exports.createOrder = async (req, res) => {
-  const { amount, currency } = req.body;
-
-  // Check if user info is available in the request (assuming req.user contains authenticated user details)
-  if (!req.user) {
-    return res.status(401).json({ error: 'User information is incomplete.' });
-  }
-
   try {
+    // Get user details from the req.user cookie
+    const user = req.user;
+
+    if (!user.businessId || !user.id) {
+      return res.status(400).json({ message: 'Invalid user data. Ensure businessId and staffId are provided.' });
+    }
+
+    // Extract planId from the request body
+    const { planId } = req.body;
+
+    if (!planId) {
+      return res.status(400).json({ message: 'Plan ID is required to create an order.' });
+    }
+
+    // Find the plan in the database
+    const plan = await Plan.findById(planId); // Assuming Plan is your plan model
+    if (!plan) {
+      return res.status(404).json({ message: 'Plan not found' });
+    }
+
+    // Convert the Decimal128 value to a regular float
+    const amountInFloat = parseFloat(plan.price.toString());  // Convert Decimal128 to float
+
+    // Razorpay expects amount in the smallest unit (paise for INR), so multiply by 100
+    const amountInSmallestUnit = Math.round(amountInFloat * 100);  // Make sure it's an integer
+
+    const currency = plan.currency || 'INR'; // Default to INR if currency is not defined in the plan
+    const receipt = `receipt_order_${Date.now()}`; // Unique receipt for each order
+
+    // Create Razorpay order
     const options = {
-      amount: amount * 100, // Amount in paise
-      currency,
-      receipt: `receipt_${Date.now()}`,
+      amount: Math.round(amountInSmallestUnit), // Ensure it's an integer
+      currency: currency,
+      receipt: receipt,
+      payment_capture: 1, // Auto capture payment
     };
 
     const order = await razorpay.orders.create(options);
-    res.status(200).json({ success: true, order });
+
+    // Save order details in the PaymentHistory model
+    const paymentHistory = new PaymentHistory({
+      businessId: user.businessId._id,
+      staffId: user.id, // Assuming staffId is the user ID
+      orderId: order.id,
+      amount: plan.price,
+      status: 'Pending',
+      paymentDate: Date.now(),
+    });
+
+    await paymentHistory.save();
+
+    // Respond with Razorpay order details
+    res.status(200).json({
+      success: true,
+      orderId: order.id,
+      amount: amountInSmallestUnit,
+      currency: currency,
+      key_id: razorpay.key_id, // Send Razorpay key_id to frontend for initialization
+    });
+    
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Unable to create order', error });
+    console.error('Error creating order:', error);
+    res.status(500).json({ success: false, message: 'Failed to create order' });
   }
 };
 
 // Verify Payment
 exports.verifyPayment = async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-
-  const body = razorpay_order_id + "|" + razorpay_payment_id;
-  const expectedSignature = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-    .update(body)
-    .digest('hex');
-
-  if (expectedSignature !== razorpay_signature) {
-    return res.status(400).json({ success: false, message: 'Payment verification failed' });
-  }
-
-  // Check if user info is available in the request (assuming req.user contains authenticated user details)
-  if (!req.user) {
-    return res.status(401).json({ error: 'User information is incomplete.' });
-  }
-
-  // If the payment is verified successfully, store the payment history
-  const paymentData = {
-    businessId: req.user.businessId, // Assuming you have the user info
-    staffId: req.user.staffId, // Assuming you have the staff info
-    paymentDate: new Date(),
-    paymentId: razorpay_payment_id,
-    orderId: razorpay_order_id,
-    status: 'success',
-    amount: req.body.amount, // Ensure this amount is correct
-  };
-
   try {
-    // Store Payment History
-    const paymentHistory = await PaymentHistory.create(paymentData);
+    // Get payment data from frontend
+    const { paymentId, orderId, signature } = req.body;
 
-    // Store Subscription History
-    const subscriptionData = {
-      businessId: paymentData.businessId,
-      paymentId: paymentHistory._id,
-      planId: req.body.planId, // Assuming planId is provided in the request
-      startDate: new Date(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Example: 30 days from now
-      subscriptionStatus: 'active',
-      orderId: razorpay_order_id,
-    };
+    // Get the Razorpay order details to verify signature
+    const body = `${orderId}|${paymentId}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest('hex');
 
-    await SubscriptionHistory.create(subscriptionData);
+    // Check if the signature matches
+    if (expectedSignature === signature) {
+      // Save payment details in PaymentHistory
+      const paymentHistory = await PaymentHistory.findOne({ orderId: orderId });
+      if (!paymentHistory) {
+        return res.status(400).json({ success: false, message: 'Payment not found' });
+      }
 
-    res.status(200).json({ success: true, message: 'Payment verified successfully, redirecting to dashboard' });
+      paymentHistory.status = 'Success'; // Payment successful
+      paymentHistory.paymentId = paymentId;
+      await paymentHistory.save();
+
+      // Create a subscription history entry
+      const subscriptionHistory = new SubscriptionHistory({
+        businessId: paymentHistory.businessId,
+        paymentId: paymentHistory._id,
+        planId: req.body.planId, // Assuming planId is provided in the request
+        startDate: new Date(),
+        endDate: new Date(Date.now() + req.body.duration * 24 * 60 * 60 * 1000), // Duration in days
+        subscriptionStatus: 'Active',
+        orderId: orderId,
+      });
+
+      await subscriptionHistory.save();
+
+      res.status(200).json({ success: true, message: 'Payment verified and subscription active' });
+    } else {
+      res.status(400).json({ success: false, message: 'Payment verification failed' });
+    }
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Error storing payment data', error });
+    console.error('Error verifying payment:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify payment' });
   }
 };
