@@ -1,9 +1,10 @@
-// controllers/paymentController.js
-const Razorpay = require('razorpay');
-const PaymentHistory = require('../models/PaymentHistory');
-const SubscriptionHistory = require('../models/SubscriptionHistory');
-const Plan = require('../models/Plans');
-const crypto = require('crypto');
+const Razorpay = require('razorpay'); // Razorpay SDK for payment integration
+const PaymentHistory = require('../models/PaymentHistory'); // Payment history model
+const Organization = require('../models/Organization'); // Payment history model
+const SubscriptionHistory = require('../models/SubscriptionHistory'); // Subscription history model
+const Plan = require('../models/Plans'); // Plan model
+const crypto = require('crypto'); // For signature verification
+require('dotenv').config(); // For accessing environment variables
 
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
@@ -11,119 +12,183 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Create Order
+/**
+ * Create an order for a plan purchase.
+ * Validates user details, fetches plan data, and creates a Razorpay order.
+ */
 exports.createOrder = async (req, res) => {
   try {
-    // Get user details from the req.user cookie
     const user = req.user;
-
-    if (!user.businessId || !user.id) {
-      return res.status(400).json({ message: 'Invalid user data. Ensure businessId and staffId are provided.' });
+    if (!user || !user.businessId || !user.id) {
+      return res.status(400).json({ message: 'Invalid user data.' });
     }
 
-    // Extract planId from the request body
     const { planId } = req.body;
 
-    if (!planId) {
-      return res.status(400).json({ message: 'Plan ID is required to create an order.' });
+    // Check for existing order in cookie
+    if (req.cookies.orderDetails) {
+      const existingOrder = JSON.parse(req.cookies.orderDetails);
+      if (existingOrder.planId === planId) {
+        return res.status(200).json({ message: 'Order already exists for this plan.' });
+      }
     }
 
-    // Find the plan in the database
-    const plan = await Plan.findById(planId); // Assuming Plan is your plan model
+    const plan = await Plan.findById(planId);
     if (!plan) {
-      return res.status(404).json({ message: 'Plan not found' });
+      return res.status(404).json({ message: 'Plan not found.' });
     }
 
-    // Convert the Decimal128 value to a regular float
-    const amountInFloat = parseFloat(plan.price.toString());  // Convert Decimal128 to float
-
-    // Razorpay expects amount in the smallest unit (paise for INR), so multiply by 100
-    const amountInSmallestUnit = Math.round(amountInFloat * 100);  // Make sure it's an integer
-
-    const currency = plan.currency || 'INR'; // Default to INR if currency is not defined in the plan
-    const receipt = `receipt_order_${Date.now()}`; // Unique receipt for each order
-
-    // Create Razorpay order
-    const options = {
-      amount: Math.round(amountInSmallestUnit), // Ensure it's an integer
-      currency: currency,
-      receipt: receipt,
-      payment_capture: 1, // Auto capture payment
+    const amountInSmallestUnit = Math.round(parseFloat(plan.price.toString()) * 100);
+    const orderOptions = {
+      amount: amountInSmallestUnit,
+      currency: plan.currency || 'INR',
+      receipt: `receipt_order_${Date.now()}`,
+      payment_capture: 1,
     };
+    const order = await razorpay.orders.create(orderOptions);
 
-    const order = await razorpay.orders.create(options);
-
-    // Save order details in the PaymentHistory model
-    const paymentHistory = new PaymentHistory({
-      businessId: user.businessId._id,
-      staffId: user.id, // Assuming staffId is the user ID
-      orderId: order.id,
-      amount: plan.price,
-      status: 'Pending',
-      paymentDate: Date.now(),
-    });
-
-    await paymentHistory.save();
-
-    // Respond with Razorpay order details
-    res.status(200).json({
-      success: true,
+    const orderDetails = {
       orderId: order.id,
       amount: amountInSmallestUnit,
-      currency: currency,
-      key_id: razorpay.key_id, // Send Razorpay key_id to frontend for initialization
+      currency: plan.currency || 'INR',
+      planId: plan._id,
+      planName: plan.planName,
+      planValidity: plan.durationDays,
+      total: plan.price,
+    };
+
+    res.cookie('orderDetails', JSON.stringify(orderDetails), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000,
     });
-    
+
+    res.status(200).json({ message: 'Order created successfully.' });
   } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({ success: false, message: 'Failed to create order' });
+    res.status(500).json({ message: 'Failed to create order.', error: error.message });
   }
 };
 
-// Verify Payment
+
+/**
+ * Verify payment and activate subscription.
+ * Validates Razorpay signature and updates payment and subscription history.
+ */
 exports.verifyPayment = async (req, res) => {
   try {
-    // Get payment data from frontend
-    const { paymentId, orderId, signature } = req.body;
+    const { paymentData, planId } = req.body;
 
-    // Get the Razorpay order details to verify signature
-    const body = `${orderId}|${paymentId}`;
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(body)
-      .digest('hex');
+    // Fetch necessary user data
+    const user = req.user;
 
-    // Check if the signature matches
-    if (expectedSignature === signature) {
-      // Save payment details in PaymentHistory
-      const paymentHistory = await PaymentHistory.findOne({ orderId: orderId });
-      if (!paymentHistory) {
-        return res.status(400).json({ success: false, message: 'Payment not found' });
-      }
-
-      paymentHistory.status = 'Success'; // Payment successful
-      paymentHistory.paymentId = paymentId;
-      await paymentHistory.save();
-
-      // Create a subscription history entry
-      const subscriptionHistory = new SubscriptionHistory({
-        businessId: paymentHistory.businessId,
-        paymentId: paymentHistory._id,
-        planId: req.body.planId, // Assuming planId is provided in the request
-        startDate: new Date(),
-        endDate: new Date(Date.now() + req.body.duration * 24 * 60 * 60 * 1000), // Duration in days
-        subscriptionStatus: 'Active',
-        orderId: orderId,
-      });
-
-      await subscriptionHistory.save();
-
-      res.status(200).json({ success: true, message: 'Payment verified and subscription active' });
-    } else {
-      res.status(400).json({ success: false, message: 'Payment verification failed' });
+    if (!user || !user.businessId || !user.id) {
+      return res.status(400).json({ message: 'Invalid user data.' });
     }
+
+    const businessId = user.businessId;
+    const staffId = user.id;
+
+    // Validate payment
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = paymentData;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ success: false, message: 'Invalid payment details.' });
+    }
+
+    // Fetch plan details
+    const plan = await Plan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'Plan not found.' });
+    }
+
+    // Check for any active subscriptions for the organization
+    const lastActiveSubscription = await SubscriptionHistory.findOne({
+      businessId,
+      subscriptionStatus: 'active',
+    }).sort({ endDate: -1 }); // Sort by end date to get the most recent subscription
+
+    // Calculate start date
+    const currentDate = new Date();
+    const startDate = lastActiveSubscription && new Date(lastActiveSubscription.endDate) > currentDate
+      ? new Date(lastActiveSubscription.endDate) // Start after the current active subscription ends
+      : currentDate; // Start immediately if no active subscription
+
+    // Calculate end date based on the plan's duration
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + plan.durationDays);
+
+    // Determine subscription status
+    const subscriptionStatus = startDate.toDateString() === currentDate.toDateString() ? 'active' : 'upcoming';
+
+    // Store payment details in PaymentHistory
+    const paymentHistory = new PaymentHistory({
+      businessId,
+      staffId,
+      paymentDate: currentDate,
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      status: 'success', // Mark payment as successful
+      amount: plan.price,
+    });
+    await paymentHistory.save();
+
+    // Store subscription details in SubscriptionHistory
+    const subscriptionHistory = new SubscriptionHistory({
+      businessId,
+      paymentId: paymentHistory._id,
+      planId,
+      startDate,
+      endDate,
+      subscriptionStatus, // Use the calculated subscription status
+      orderId: razorpay_order_id,
+    });
+    await subscriptionHistory.save();
+
+    // Update the organization's isPaid field to true
+    await Organization.findByIdAndUpdate(
+      businessId,
+      { isPaid: true },
+      { new: true } // Return the updated document
+    );
+
+    // Clear the orderDetails cookie
+    res.cookie('orderDetails', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 0, // Clear the cookie immediately
+    });
+
+    res.status(200).json({ success: true, message: 'Payment verified and subscription processed successfully.' });
   } catch (error) {
     console.error('Error verifying payment:', error);
-    res.status(500).json({ success: false, message: 'Failed to verify payment' });
+    res.status(500).json({ success: false, message: 'Failed to verify payment.', error: error.message });
+  }
+};
+
+/**
+ * Get order details from cookies.
+ */
+exports.getOrderDetails = async (req, res) => {
+  try {
+    // Get user details from the authenticated request
+    const user = req.user;
+    if (!user || !user.businessId || !user.id) {
+      return res
+        .status(400)
+        .json({ message: 'Invalid user data. Ensure businessId and staffId are provided.' });
+    }
+
+    // Read orderDetails from the cookie
+    const orderDetails = req.cookies.orderDetails;
+
+    if (!orderDetails) {
+      return res.status(404).json({ message: 'No order details found.' });
+    }
+
+    // Parse and send back the orderDetails
+    res.status(200).json({ orderDetails: JSON.parse(orderDetails) });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve order details.', error: error.message });
   }
 };
