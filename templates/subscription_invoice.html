@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            color: #333; 
+            background-color: #f4f4f4; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            background-color: #ffffff; 
+            border-radius: 5px; 
+            overflow: hidden; 
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
+        }
+        .header { 
+            padding: 20px; 
+            text-align: center; 
+            background-color: #000000; 
+            color: #ffffff; 
+        }
+        .header h1 { 
+            margin: 0; 
+            font-size: 24px; 
+        }
+        .content { 
+            padding: 20px; 
+            font-size: 14px; 
+            line-height: 1.6; 
+        }
+        .content p { 
+            margin: 10px 0; 
+        }
+        .invoice-details { 
+            margin-top: 20px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+            padding: 15px; 
+            background-color: #f9f9f9; 
+        }
+        .invoice-details p { 
+            margin: 5px 0; 
+            font-size: 14px; 
+        }
+        .invoice-details hr { 
+            border: none; 
+            border-top: 1px solid #ddd; 
+            margin: 10px 0; 
+        }
+        .footer { 
+            background-color: #f4f4f4; 
+            padding: 10px; 
+            text-align: center; 
+            font-size: 12px; 
+            color: #666; 
+        }
+        .footer a {
+            color: #333; 
+            text-decoration: none; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>aab.</h1>
+        </div>
+        <div class="content">
+            <p>Hello <strong>${name}</strong>,</p>
+            <p>Thank you for choosing <strong>All In One Agile Business Management</strong>! We truly appreciate your trust in our platform to help streamline and grow your business.</p>
+            <p>Please find your subscription invoice details below for your records:</p>
+
+            <div class="invoice-details">
+                <p><strong>Order ID:</strong> ${orderId}</p>
+                <p><strong>Plan Name:</strong> ${planName}</p>
+                <p><strong>Validity:</strong> ${startDate} - ${endDate}</p>
+                <p><strong>Price:</strong> ${currencySymbol} ${price}</p>
+                <hr>
+                <p><strong>Total: ${currencySymbol} ${total}</strong></p>
+            </div>
+
+            <p>We’re here to support you. If you have any questions or need assistance, feel free to reach out to our team.</p>
+            <p>Best regards,<br><strong>Al Anwar Creativity Studio</strong></p>
+        </div>
+        <div class="footer">
+            <p>© 2024 All In One Agile Business Management SaaS. All rights reserved.</p>
+            <p><a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></p>
+        </div>
+    </div>
+</body>
+</html>

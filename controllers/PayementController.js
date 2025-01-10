@@ -3,7 +3,7 @@ const PaymentHistory = require('../models/PaymentHistory'); // Payment history m
 const Organization = require('../models/Organization'); // Payment history model
 const SubscriptionHistory = require('../models/SubscriptionHistory'); // Subscription history model
 const Plan = require('../models/Plans'); // Plan model
-const crypto = require('crypto'); // For signature verification
+const sendEmail = require('../utils/sendEmailUtils'); // Utility for sending emails
 require('dotenv').config(); // For accessing environment variables
 
 // Initialize Razorpay instance
@@ -79,9 +79,8 @@ exports.verifyPayment = async (req, res) => {
   try {
     const { paymentData, planId } = req.body;
 
-    // Fetch necessary user data
+    // Fetch user data
     const user = req.user;
-
     if (!user || !user.businessId || !user.id) {
       return res.status(400).json({ message: 'Invalid user data.' });
     }
@@ -98,73 +97,107 @@ exports.verifyPayment = async (req, res) => {
     // Fetch plan details
     const plan = await Plan.findById(planId);
     if (!plan) {
-      return res.status(404).json({ success: false, message: 'Plan not found.' });
+      return res.status(404).json({
+        success: false,
+        message: 'The selected plan does not exist. Please try again.',
+      });
     }
 
-    // Check for any active subscriptions for the organization
+    // Check for active subscriptions and calculate dates
     const lastActiveSubscription = await SubscriptionHistory.findOne({
       businessId,
       subscriptionStatus: 'active',
-    }).sort({ endDate: -1 }); // Sort by end date to get the most recent subscription
+    }).sort({ endDate: -1 });
 
-    // Calculate start date
     const currentDate = new Date();
     const startDate = lastActiveSubscription && new Date(lastActiveSubscription.endDate) > currentDate
-      ? new Date(lastActiveSubscription.endDate) // Start after the current active subscription ends
-      : currentDate; // Start immediately if no active subscription
+      ? new Date(lastActiveSubscription.endDate)
+      : currentDate;
 
-    // Calculate end date based on the plan's duration
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + plan.durationDays);
 
-    // Determine subscription status
     const subscriptionStatus = startDate.toDateString() === currentDate.toDateString() ? 'active' : 'upcoming';
 
-    // Store payment details in PaymentHistory
+    // Format dates to dd-mm-yyyy
+    const formatDate = (date) => {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+    const formattedStartDate = formatDate(startDate);
+    const formattedEndDate = formatDate(endDate);
+
+    // Save payment history
     const paymentHistory = new PaymentHistory({
       businessId,
       staffId,
       paymentDate: currentDate,
       paymentId: razorpay_payment_id,
       orderId: razorpay_order_id,
-      status: 'success', // Mark payment as successful
+      status: 'success',
       amount: plan.price,
     });
     await paymentHistory.save();
 
-    // Store subscription details in SubscriptionHistory
+    // Save subscription history
     const subscriptionHistory = new SubscriptionHistory({
       businessId,
       paymentId: paymentHistory._id,
       planId,
       startDate,
       endDate,
-      subscriptionStatus, // Use the calculated subscription status
+      subscriptionStatus,
       orderId: razorpay_order_id,
     });
     await subscriptionHistory.save();
 
-    // Update the organization's isPaid field to true
+    // Update organization
     await Organization.findByIdAndUpdate(
       businessId,
       { isPaid: true },
-      { new: true } // Return the updated document
+      { new: true }
     );
 
-    // Clear the orderDetails cookie
+    const planPrice = parseFloat(plan.price);
+
+    // Prepare email data
+    const emailData = {
+      name: user.name || 'Customer',
+      orderId: razorpay_order_id,
+      planName: plan.planName,
+      startDate: formattedStartDate,
+      endDate: formattedEndDate,
+      currencySymbol: plan.currencySymbol || '₹',
+      price: planPrice,
+      total: planPrice,
+    };
+
+    // Send confirmation email
+    await sendEmail({
+      to: user.email,
+      subject: 'Subscription Confirmation',
+      templatePath: '../templates/subscription_invoice.html', // Adjust the path to your email template
+      templateData: emailData,
+    });
+
+    // Clear orderDetails cookie
     res.cookie('orderDetails', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 0, // Clear the cookie immediately
+      maxAge: 0,
     });
 
-    res.status(200).json({ success: true, message: 'Payment verified and subscription processed successfully.' });
+    res.status(200).json({ success: true, message: 'Payment verified and subscription processed successfully. Confirmation email sent.' });
   } catch (error) {
     console.error('Error verifying payment:', error);
     res.status(500).json({ success: false, message: 'Failed to verify payment.', error: error.message });
   }
 };
+
+
 
 /**
  * Get order details from cookies.

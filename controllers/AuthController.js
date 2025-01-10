@@ -202,12 +202,17 @@ exports.validateUser = async (req, res) => {
         if (req.user) {
             const { _id, name, email, photo, businessId } = req.user;
 
-            // Fetch the active subscription for the user's organization
+            // Fetch the latest active subscription
             const activeSubscription = await SubscriptionHistory.findOne({
                 businessId: businessId._id,
                 subscriptionStatus: 'active',
-            }).sort({ endDate: -1 }); // Sort by endDate to get the latest active subscription
+            }).sort({ endDate: -1 });
 
+            // Update business status based on the subscription
+            const isPaid = !!activeSubscription;
+            const subscriptionStatus = activeSubscription ? activeSubscription.subscriptionStatus : 'inactive';
+
+            // Return updated user details
             return res.status(200).json({
                 message: 'Token is valid.',
                 user: {
@@ -220,9 +225,9 @@ exports.validateUser = async (req, res) => {
                         name: businessId.name,
                         logo: businessId.logo,
                         isSetupCompleted: businessId.isSetupCompleted,
-                        isPaid: businessId.isPaid,
-                        subscriptionStatus: activeSubscription ? 'active' : 'inactive', // Send subscription status
-                        activeSubscriptionId: activeSubscription ? activeSubscription._id : null, // Send subscription ID if active
+                        isPaid,
+                        subscriptionStatus,
+                        activeSubscriptionId: activeSubscription ? activeSubscription._id : null,
                     },
                 },
             });
@@ -234,6 +239,7 @@ exports.validateUser = async (req, res) => {
         res.status(500).json({ message: 'Unable to validate token.', error: error.message });
     }
 };
+
 
 
 /**

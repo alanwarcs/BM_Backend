@@ -17,11 +17,16 @@ const transporter = nodemailer.createTransport({
 // Function to send email
 const sendEmail = async ({ to, subject, templatePath, templateData }) => {
     try {
+        // Read the template file
         const template = await fs.readFile(path.join(__dirname, templatePath), 'utf-8');
-        const htmlContent = template
-            .replace(/\${name}/g, templateData.name)
-            .replace(/\${verificationURL}/g, templateData.verificationURL);
 
+        // Replace all placeholders dynamically
+        const htmlContent = Object.keys(templateData).reduce((content, key) => {
+            const regex = new RegExp(`\\$\\{${key}\\}`, 'g');
+            return content.replace(regex, templateData[key]);
+        }, template);
+
+        // Mail options
         const mailOptions = {
             from: process.env.SMTP_USER,
             to,
@@ -29,6 +34,7 @@ const sendEmail = async ({ to, subject, templatePath, templateData }) => {
             html: htmlContent,
         };
 
+        // Send email
         await transporter.sendMail(mailOptions);
     } catch (error) {
         console.error('Error sending email:', error.message);
