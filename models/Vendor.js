@@ -1,13 +1,16 @@
 const mongoose = require('mongoose');
 
 const vendorSchema = new mongoose.Schema({
+  businessId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true, // Ensure every vendor is linked to an organization
+  },
   vendorOrganizationName: {
     type: String,
-    required: true,
   },
   primaryPerson: {
     type: String,
-    required: true,
   },
   displayName: {
     type: String,
@@ -15,13 +18,9 @@ const vendorSchema = new mongoose.Schema({
   },
   emailAddress: {
     type: String,
-    required: true,
-    unique: true,
   },
   phone: {
     type: String,
-    required: true,
-    unique: true,
   },
   shippingAddress: {
     addressLine1: String,
@@ -48,22 +47,21 @@ const vendorSchema = new mongoose.Schema({
     gstin: {
       type: String,
       required: function () {
-        return this.taxDetails.taxStatus === 'GST Registered';
+        return this.taxDetails.taxStatus === 'gstRegistered';
       },
     },
     panNumber: String,
   },
   bankDetails: [
     {
-      accountHolderName: { type: String, required: true },
-      bankName: { type: String, required: true },
-      ifscCode: { type: String, required: true },
-      accountNumber: { type: String, required: true },
+      accountHolderName: { type: String },
+      bankName: { type: String },
+      ifscCode: { type: String },
+      accountNumber: { type: String },
     },
   ],
   currency: {
     type: String,
-    required: true,
     default: 'INR',
   },
   tags: [String],
@@ -72,7 +70,7 @@ const vendorSchema = new mongoose.Schema({
   // Custom fields
   customFields: [
     {
-      fieldName: { type: String, required: true },
+      fieldName: { type: String },
       fieldValue: mongoose.Schema.Types.Mixed, // Flexible type for custom data
     },
   ],

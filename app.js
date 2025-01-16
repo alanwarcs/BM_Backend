@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const authRoutes = require('./routes/authRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const planRoutes = require('./routes/planRoutes');
+const vendorRoutes = require('./routes/vendorRoutes');
 
 // Initialize dotenv to load environment variables
 dotenv.config();
@@ -33,6 +34,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/payment', paymentRoutes);
 
 app.use('/api/plans', planRoutes);
+
+app.use('/api/vendor', vendorRoutes);
 
 // Environment variable for PORT or default to 3000
 const PORT = process.env.PORT || 3001;
