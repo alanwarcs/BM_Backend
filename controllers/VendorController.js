@@ -1,6 +1,10 @@
 const Vendor = require('../models/Vendor'); // Vendor model
 const Organization = require('../models/Organization'); // Organization model
+const path = require("path");
+const fs = require("fs");
+
 require('dotenv').config(); // For accessing environment variables
+
 
 /**
  * Add Vendors.
@@ -69,7 +73,6 @@ exports.addVendors = async (req, res) => {
       vendor: newVendor,
     });
   } catch (error) {
-    console.error('Error adding vendor:', error.message);
     res.status(500).json({
       success: false,
       message: 'An error occurred while adding the vendor.',
@@ -89,28 +92,77 @@ exports.getVendors = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid user data.' });
     }
 
-    const { page = 1, limit = 10 } = req.query; // Get page and limit from query params
-    const vendors = await Vendor.find({ businessId: user.businessId })
-      .skip((page - 1) * limit)
+    const { page = 1, limit = 10, gstRegistered, search } = req.query;
+
+    // Build the query object
+    const query = { businessId: user.businessId };
+
+    // Handle GST filter
+    if (gstRegistered === 'gstRegistered') {
+      query['taxDetails.taxStatus'] = 'gstRegistered';
+    } else if (gstRegistered === 'unregistered') {
+      query['taxDetails.taxStatus'] = 'unregistered';
+    }
+
+    // Handle search filter
+    if (search) {
+      query.$or = [
+        { vendorOrganizationName: { $regex: search, $options: 'i' } },
+        { primaryPerson: { $regex: search, $options: 'i' } },
+        { emailAddress: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+        { 'shippingAddress.addressLine1': { $regex: search, $options: 'i' } },
+        { 'shippingAddress.city': { $regex: search, $options: 'i' } },
+        { 'shippingAddress.state': { $regex: search, $options: 'i' } },
+        { 'shippingAddress.country': { $regex: search, $options: 'i' } },
+        { 'billingAddress.addressLine1': { $regex: search, $options: 'i' } },
+        { 'billingAddress.city': { $regex: search, $options: 'i' } },
+        { 'billingAddress.state': { $regex: search, $options: 'i' } },
+        { 'billingAddress.country': { $regex: search, $options: 'i' } },
+        { 'taxDetails.panNumber': { $regex: search, $options: 'i' } },
+        { 'taxDetails.gstin': { $regex: search, $options: 'i' } },
+        { 'bankDetails.accountHolderName': { $regex: search, $options: 'i' } },
+        { 'bankDetails.bankName': { $regex: search, $options: 'i' } },
+        { 'bankDetails.accountNumber': { $regex: search, $options: 'i' } },
+        { 'bankDetails.ifscCode': { $regex: search, $options: 'i' } },
+        { currency: { $regex: search, $options: 'i' } },
+      ];
+    } else {
+      // If search is empty or not provided, fetch all vendors (you can adjust this logic based on your preference)
+      query.$or = [{ vendorOrganizationName: { $regex: '', $options: 'i' } }];
+    }
+
+    // Pagination
+    const skip = (page - 1) * limit;
+
+    // Fetch vendors based on query
+    const vendors = await Vendor.find(query)
+      .skip(skip)
       .limit(Number(limit));
 
-    const totalVendors = await Vendor.countDocuments({ businessId: user.businessId });
+
+
+    // Count total vendors for pagination
+    const totalVendors = await Vendor.countDocuments(query);
     const totalPages = Math.ceil(totalVendors / limit);
 
+    // Send response with data and pagination
     res.status(200).json({
       success: true,
-      vendors,
-      pagination: {
-        currentPage: Number(page),
-        totalPages,
-        totalVendors,
+      data: {
+        vendors,
+        pagination: {
+          currentPage: Number(page),
+          totalPages,
+          totalVendors,
+        },
       },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching Vendors',
-      error,
+      message: 'Error fetching vendors',
+      error: error.message,
     });
   }
 };
@@ -150,7 +202,6 @@ exports.deleteVendor = async (req, res) => {
       message: 'Vendor deleted successfully.',
     });
   } catch (error) {
-    console.error('Error deleting vendor:', error.message);
     res.status(500).json({
       success: false,
       message: 'An error occurred while deleting the vendor.',
@@ -238,7 +289,6 @@ exports.updateVendor = async (req, res) => {
       updatedVendor: vendor,
     });
   } catch (error) {
-    console.error('Error updating vendor:', error.message);
     res.status(500).json({
       success: false,
       message: 'An error occurred while updating the vendor.',
@@ -246,3 +296,93 @@ exports.updateVendor = async (req, res) => {
     });
   }
 };
+
+/**
+ * Print Vendor List.
+ */
+exports.printVendorList = async (req, res) => {
+  try {
+    // Get selected vendors and fields from the request body
+    const { selectedVendors, selectedFields } = req.body;
+
+    // Validate if the selected vendors or fields are missing
+    if (!selectedVendors || !selectedFields || selectedVendors.length === 0) {
+      return res.status(400).send("Selected vendors or fields are missing.");
+    }
+
+    // Extract vendor IDs (keys of the selectedVendors object) and use them directly
+    const vendorIds = Object.keys(selectedVendors);
+
+    // Fetch only the selected vendors from the database
+    const vendors = await Vendor.find({ _id: { $in: vendorIds } });
+
+    // Field mapping (can be extended or modified as per your model)
+    const fieldMapping = {
+      "Organization Name": "vendorOrganizationName",
+      "Primary Person Name": "primaryPerson",
+      Email: "emailAddress",
+      Phone: "phone",
+      "Shipping Address": "shippingAddress",
+      "Billing Address": "billingAddress",
+      GSTIN: "taxDetails.gstin",
+      "Source State": "taxDetails.sourceState",
+      "PAN Number": "taxDetails.panNumber",
+    };
+
+    // Function to format field values (e.g., handle null or undefined)
+    const formatFieldValue = (value, fieldName) => {
+      // If the field is an address, format it accordingly
+      if (fieldName === "Shipping Address" || fieldName === "Billing Address") {
+        if (value && value.addressLine1) {
+          return `${value.addressLine1}, ${value.city}, ${value.state}, ${value.country}, ${value.postalCode}`;
+        }
+        return "N/A";
+      }
+      return value || "N/A";
+    };
+
+    // Read the HTML template
+    const templatePath = path.join(__dirname, "..", "templates", "vendorList.html");
+    const templateHTML = fs.readFileSync(templatePath, "utf-8");
+
+    // Function to generate the HTML dynamically based on selected fields and vendors
+    const generateHTML = (vendors, selectedFields) => {
+      return templateHTML
+        .replace(
+          "{{HEADERS}}",
+          selectedFields.map((field) => `<th>${field}</th>`).join("")
+        )
+        .replace(
+          "{{ROWS}}",
+          vendors
+            .map((vendor) =>
+              `<tr>${selectedFields
+                .map((field) => {
+                  const dbField = fieldMapping[field];
+                  const value = dbField
+                    ? dbField
+                        .split(".")
+                        .reduce((o, key) => (o ? o[key] : "N/A"), vendor)
+                    : "N/A";
+                  return `<td>${formatFieldValue(value, field)}</td>`;
+                })
+                .join("")}</tr>`
+            )
+            .join("")
+        );
+    };
+
+    // Generate HTML content
+    const html = generateHTML(vendors, selectedFields);
+
+    // Send HTML as a response to the frontend (can be downloaded or viewed directly)
+    res.setHeader("Content-Type", "text/html");
+    res.send(html);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Failed to generate vendor list");
+  }
+};
+
+
