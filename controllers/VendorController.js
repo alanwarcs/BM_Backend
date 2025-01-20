@@ -92,7 +92,7 @@ exports.getVendors = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid user data.' });
     }
 
-    const { page = 1, limit = 10, gstRegistered, search } = req.query;
+    const { page = 1, limit = 13, gstRegistered, search } = req.query;
 
     // Build the query object
     const query = { businessId: user.businessId };
@@ -336,9 +336,9 @@ exports.printVendorList = async (req, res) => {
         if (value && value.addressLine1) {
           return `${value.addressLine1}, ${value.city}, ${value.state}, ${value.country}, ${value.postalCode}`;
         }
-        return "N/A";
+        return "-";
       }
-      return value || "N/A";
+      return value || "-";
     };
 
     // Read the HTML template
@@ -362,8 +362,8 @@ exports.printVendorList = async (req, res) => {
                   const value = dbField
                     ? dbField
                         .split(".")
-                        .reduce((o, key) => (o ? o[key] : "N/A"), vendor)
-                    : "N/A";
+                        .reduce((o, key) => (o ? o[key] : "-"), vendor)
+                    : "-";
                   return `<td>${formatFieldValue(value, field)}</td>`;
                 })
                 .join("")}</tr>`

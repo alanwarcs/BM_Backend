@@ -13,6 +13,7 @@
         width: 100%;
         border-collapse: collapse;
         margin-top: 20px;
+        table-layout: auto; /* Automatically adjusts column width based on content */
       }
       th,
       td {
@@ -22,6 +23,42 @@
       }
       th {
         background-color: #f4f4f4;
+      }
+
+      /* Print-specific styles */
+      @media print {
+        body {
+          font-size: 10pt; /* Adjust font size for printing */
+        }
+
+        table {
+          width: 100%;
+          table-layout: auto; /* Automatically adjust columns based on content */
+        }
+
+        th,
+        td {
+          padding: 6px; /* Adjust padding to ensure content fits */
+          font-size: 9pt; /* Reduce font size for printing */
+        }
+
+        /* Page size and margins for A4 */
+        @page {
+          size: A4;
+          margin: 20mm; /* Adjust margins if necessary */
+        }
+
+        h1 {
+          font-size: 12pt; /* Adjust heading size */
+        }
+
+        /* Ensure the table does not overflow */
+        table,
+        th,
+        td {
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     </style>
   </head>
