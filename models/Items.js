@@ -9,14 +9,13 @@ const itemSchema = new mongoose.Schema({
     warehouseId: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Warehouse', 
-        required: true 
     }, // Reference to the Warehouse schema
     type: { 
         type: String, 
         enum: ['Services', 'Product'], 
         required: true 
     }, // Type of item (Services/Product)
-    name: { 
+    itemName: { 
         type: String, 
         required: true 
     }, // Name of the item
@@ -27,7 +26,7 @@ const itemSchema = new mongoose.Schema({
     description: { 
         type: String 
     }, // Item description
-    pricing: { 
+    sellInfo: { 
         price: { 
             type: mongoose.Schema.Types.Decimal128, 
             required: true 
@@ -37,7 +36,7 @@ const itemSchema = new mongoose.Schema({
             required: true 
         } // Currency used for the price
     },
-    purchasePricing: { 
+    purchaseInfo: { 
         purchasePrice: { 
             type: mongoose.Schema.Types.Decimal128, 
             required: true 
@@ -45,7 +44,11 @@ const itemSchema = new mongoose.Schema({
         purchaseCurrency: { 
             type: String, 
             required: true 
-        } // Currency used for the purchase price
+        }, // Currency used for the purchase price
+        vendorId: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: 'Vendor'
+        }, // Reference to the Vendor schema
     },
     gst: { 
         intraStateGST: { 
