@@ -3,30 +3,34 @@ const itemSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Business', 
         required: true 
-    },
-    warehouseId: [
+    }, 
+    locationId: [
         {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'Warehouse'
+            ref: 'Location'
         }
-    ], // Multiple warehouses support, each referenced by its ID
+    ],
     units: [
         {
-            type: { 
+            category: { 
                 type: String, 
-                enum: ['nos', 'size', 'length', 'weight'], 
+                enum: ['quantity', 'dimension', 'weight', 'volume', 'custom'], 
                 required: true 
             },
-            value: {
+            value: { 
                 type: Number, 
-                required: true
+                required: true 
             },
             unit: { 
                 type: String, 
-                required: true
+                required: true 
             },
             description: { 
                 type: String 
+            },
+            customAttributes: {
+                type: Map,
+                of: String
             }
         }
     ],
@@ -52,7 +56,7 @@ const itemSchema = new mongoose.Schema({
         vendorId: { 
             type: mongoose.Schema.Types.ObjectId, 
             ref: 'Vendor'
-        }, 
+        }
     },
     gst: { 
         intraStateGST: { 
@@ -86,13 +90,3 @@ const itemSchema = new mongoose.Schema({
         default: Date.now 
     }
 });
-
-// Automatically update the 'updatedAt' field before saving the document
-itemSchema.pre('save', function(next) {
-    this.updatedAt = Date.now();
-    next();
-});
-
-const Item = mongoose.model('Item', itemSchema);
-
-module.exports = Item;
