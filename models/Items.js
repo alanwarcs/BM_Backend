@@ -68,6 +68,12 @@ const itemSchema = new mongoose.Schema({
             default: 0 
         }
     },
+    taxPreference: {
+        type: String,
+        enum: ['GST Inclusive', 'GST Exclusive', 'No GST'],
+        required: true,
+        default: 'GST Exclusive'
+    },
     sku: { 
         type: String 
     },
