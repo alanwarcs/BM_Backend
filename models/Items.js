@@ -6,12 +6,20 @@ const itemSchema = new mongoose.Schema({
         ref: 'Business', 
         required: true 
     }, 
+    type: { 
+        type: String, 
+        enum: ['Services', 'Product'], 
+        required: true 
+    }, // Type of item (Services/Product)
+    itemName: { 
+        type: String, 
+        required: true 
+    },
     locationId: [
         {
             location: {
                 type: mongoose.Schema.Types.ObjectId,
-                ref: 'Location',
-                required: true
+                ref: 'Location'
             },
             quantity: {
                 type: Number,
@@ -24,7 +32,6 @@ const itemSchema = new mongoose.Schema({
         {
             category: { 
                 type: String, 
-                enum: ['quantity', 'dimension', 'weight', 'volume', 'custom'], 
                 required: true 
             },
             value: { 
@@ -37,10 +44,6 @@ const itemSchema = new mongoose.Schema({
             },
             description: { 
                 type: String 
-            },
-            customAttributes: { // Flexible metadata for units
-                type: Map,
-                of: String
             }
         }
     ],
