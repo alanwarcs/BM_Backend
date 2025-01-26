@@ -10,22 +10,14 @@ const locationSchema = new mongoose.Schema({
         type: String, 
         required: true 
     }, // Name of the warehouse or location
-    locationAdderss: { 
+    locationAddress: { 
         type: String, 
         required: true 
     }, // Physical address or location of the warehouse/shop
     capacity: { 
         type: Number 
     }, // Total storage capacity
-    createdAt: { 
-        type: Date, 
-        default: Date.now 
-    }, // Timestamp for creation
-    updatedAt: { 
-        type: Date, 
-        default: Date.now 
-    } // Timestamp for the last update
-});
+}, { timestamps: true });
 
 // Automatically update the 'updatedAt' field before saving the document
 locationSchema.pre('save', function (next) {
