@@ -6,11 +6,11 @@ const itemSchema = new mongoose.Schema({
         ref: 'Business', 
         required: true 
     }, 
-    type: { 
+    itemType: { 
         type: String, 
         enum: ['Services', 'Product'], 
         required: true 
-    }, // Type of item (Services/Product)
+    }, 
     itemName: { 
         type: String, 
         required: true 
@@ -19,12 +19,13 @@ const itemSchema = new mongoose.Schema({
         {
             location: {
                 type: mongoose.Schema.Types.ObjectId,
-                ref: 'Location'
+                ref: 'Location',
+                required: false // Make location optional
             },
             quantity: {
                 type: Number,
-                required: true,
-                default: 0 // Tracks stock quantity at this location
+                required: false, // Quantity should be optional but can be set if location exists
+                default: 0 // Default quantity
             }
         }
     ],
@@ -35,8 +36,7 @@ const itemSchema = new mongoose.Schema({
                 required: true 
             },
             value: { 
-                type: Number, 
-                required: true 
+                type: Number,
             },
             unit: { 
                 type: String, 
@@ -54,7 +54,8 @@ const itemSchema = new mongoose.Schema({
         },
         currency: { 
             type: String, 
-            required: true 
+            required: true,
+            default: 'INR' 
         }
     },
     purchaseInfo: { 
@@ -64,7 +65,8 @@ const itemSchema = new mongoose.Schema({
         }, 
         purchaseCurrency: { 
             type: String, 
-            required: true 
+            required: true,
+            default: 'INR' 
         }, 
         vendorId: { 
             type: mongoose.Schema.Types.ObjectId, 
