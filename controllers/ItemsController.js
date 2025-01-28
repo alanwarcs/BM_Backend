@@ -70,7 +70,6 @@ exports.addItem = async (req, res) => {
 
         res.status(201).json({ success: true, message: 'Item added successfully.', data: newItem });
     } catch (error) {
-        console.error('Error adding item:', error);
         res.status(500).json({ success: false, message: 'Internal Server Error.' });
     }
 };
