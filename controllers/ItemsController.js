@@ -5,6 +5,11 @@ const Vendor = require('../models/Vendor'); // Vendor model
 const Item = require('../models/Items'); // Items model
 require('dotenv').config(); // For accessing environment variables
 
+
+
+/**
+ * Add new item
+ */
 exports.addItem = async (req, res) => {
     const user = req.user;
 

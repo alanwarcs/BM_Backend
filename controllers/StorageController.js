@@ -1,6 +1,11 @@
 const Storage = require('../models/Storage'); // Storage model
 require('dotenv').config(); // For accessing environment variables
 
+
+/**
+ * Add Storage.
+ * Creates a Storage and links it to an organization.
+ */
 exports.addStorage = async (req, res) => {
     const user = req.user;
 
@@ -46,7 +51,10 @@ exports.addStorage = async (req, res) => {
     }
 };
 
-// Get all storage records with pagination and filtering
+
+/**
+ * Get all storage records with pagination and filtering
+ */
 exports.getStorage = async (req, res) => {
     const user = req.user;
 
@@ -84,3 +92,49 @@ exports.getStorage = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to retrieve storage. Please try again later.' });
     }
 };
+
+
+/**
+ * Delete Storage.
+ * Deletes a Storage item by its ID, ensuring it belongs to the user's organization.
+ */
+exports.deleteStorage = async (req, res) => {
+    try {
+        const user = req.user;
+
+        // Ensure the user and their businessId are valid
+        if (!user || !user.businessId || !user.id) {
+            return res.status(400).json({ success: false, message: 'Invalid user data.' });
+        }
+
+        const { storageId } = req.params;
+
+        // Ensure storageId is provided
+        if (!storageId) {
+            return res.status(400).json({ success: false, message: 'Storage ID is required.' });
+        }
+
+        // Find the storage item to ensure it exists and belongs to the user's organization
+        const storage = await Storage.findOne({ _id: storageId, businessId: user.businessId });
+
+        if (!storage) {
+            return res.status(404).json({ success: false, message: 'Storage item not found or unauthorized access.' });
+        }
+
+        // Delete the storage item
+        await Storage.deleteOne({ _id: storageId });
+
+        res.status(200).json({
+            success: true,
+            message: 'Storage item deleted successfully.',
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while deleting the storage item.',
+            error: error.message,
+        });
+    }
+};
+
+
