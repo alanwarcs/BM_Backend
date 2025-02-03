@@ -1,7 +1,6 @@
 const Storage = require('../models/Storage'); // Storage model
 require('dotenv').config(); // For accessing environment variables
 
-
 /**
  * Add Storage.
  * Creates a Storage and links it to an organization.
@@ -51,7 +50,6 @@ exports.addStorage = async (req, res) => {
     }
 };
 
-
 /**
  * Get all storage records with pagination and filtering
  */
@@ -92,7 +90,6 @@ exports.getStorage = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to retrieve storage. Please try again later.' });
     }
 };
-
 
 /**
  * Delete Storage.
@@ -137,4 +134,49 @@ exports.deleteStorage = async (req, res) => {
     }
 };
 
+/**
+ * Update Storage.
+ * Updates a Storage item by its ID, ensuring it belongs to the user's organization.
+ */
+exports.updateStorage = async (req, res) => {
+    try {
+        const user = req.user;
 
+        // Ensure the user and their businessId are valid
+        if (!user || !user.businessId) {
+            return res.status(400).json({ success: false, message: 'Invalid user data.' });
+        }
+
+        const { storageId } = req.params;
+        const updateData = req.body;
+
+        // Ensure storageId is provided
+        if (!storageId) {
+            return res.status(400).json({ success: false, message: 'Storage ID is required.' });
+        }
+
+        // Find the storage item to ensure it exists and belongs to the user's organization
+        const storage = await Storage.findOne({ _id: storageId, businessId: user.businessId });
+
+        if (!storage) {
+            return res.status(404).json({ success: false, message: 'Storage item not found or unauthorized access.' });
+        }
+
+        // Merge the updateData into the storage object
+        Object.assign(storage, updateData);
+        await storage.save(); // Save the updated storage
+
+        res.status(200).json({
+            success: true,
+            message: 'Storage item updated successfully.',
+            data: storage,
+        });
+    } catch (error) {
+        console.error('Error updating storage:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while updating the storage item.',
+            error: error.message,
+        });
+    }
+};
