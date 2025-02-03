@@ -21,13 +21,16 @@ exports.addStorage = async (req, res) => {
         capacityUnit,
     } = req.body;
 
-    // Validate required fields
-    if (!storageType || !storageName) {
-        return res.status(400).json({ success: false, message: 'Storage type and name are required.' });
+    if (!storageType?.trim() || !storageName?.trim()) {
+        return res.status(400).json({ success: false, message: 'Storage Type and Name are required.' });
     }
 
-    if (capacity && !capacityUnit) {
-        return res.status(400).json({ success: false, message: 'Capacity unit is required if capacity is provided.' });
+    if (capacity && (isNaN(capacity) || capacity <= 0)) {
+        return res.status(400).json({ success: false, message: 'Capacity must be a positive number.' });
+    }
+
+    if (capacity && !capacityUnit?.trim()) {
+        return res.status(400).json({ success: false, message: 'Capacity Unit is required if capacity is provided.' });
     }
 
     try {
@@ -37,10 +40,10 @@ exports.addStorage = async (req, res) => {
             storageType,
             storageName,
             storageAddress,
-            capacity,
-            capacityUnit,
+            capacity: capacity || undefined,
+            capacityUnit: capacityUnit?.trim() || undefined,  // Skip empty string
         });
-
+        
         await newItem.save();
 
         res.status(201).json({ success: true, message: 'Storage added successfully.', data: newItem });
@@ -162,9 +165,27 @@ exports.updateStorage = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Storage item not found or unauthorized access.' });
         }
 
+        // Validate capacity and capacityUnit
+        const { capacity, capacityUnit } = updateData;
+
+        // Check if capacity is a positive number if provided
+        if (capacity && (isNaN(capacity) || capacity <= 0)) {
+            return res.status(400).json({ success: false, message: 'Capacity must be a positive number.' });
+        }
+
+        // Ensure capacityUnit is provided if capacity is provided
+        if (capacity && !capacityUnit?.trim()) {
+            return res.status(400).json({ success: false, message: 'Capacity Unit is required if capacity is provided.' });
+        }
+
         // Merge the updateData into the storage object
         Object.assign(storage, updateData);
-        await storage.save(); // Save the updated storage
+
+        // Validate before saving
+        await storage.validate(); // Run validation manually before saving
+
+        // Save the updated storage
+        await storage.save();
 
         res.status(200).json({
             success: true,
@@ -180,3 +201,4 @@ exports.updateStorage = async (req, res) => {
         });
     }
 };
+

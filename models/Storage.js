@@ -19,7 +19,6 @@ const storageSchema = new mongoose.Schema(
         }, // Name of the storage/warehouse
         storageAddress: { 
             type: String, 
-            required: true 
         }, // Physical address of the storage/warehouse
         capacity: { 
             type: Number, 
@@ -27,8 +26,8 @@ const storageSchema = new mongoose.Schema(
         }, // Total storage capacity
         capacityUnit: { 
             type: String, 
-            enum: ['kg', 'liters', 'cubic meters', 'units'], 
-            default: 'units' 
+            enum: ['kg', 'liters', 'cubic meters', 'units'],
+            default: undefined  // Remove the empty string default 
         }, // Unit of capacity
     },
     { timestamps: true } // Automatically adds createdAt and updatedAt
