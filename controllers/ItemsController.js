@@ -1,80 +1,67 @@
-const Staff = require('../models/Staff'); // Staff model
-const Organization = require('../models/Organization'); // Organization model
-const SubscriptionHistory = require('../models/SubscriptionHistory'); // SubscriptionHistory model
-const Vendor = require('../models/Vendor'); // Vendor model
-const Item = require('../models/Items'); // Items model
-require('dotenv').config(); // For accessing environment variables
+const Item = require('../models/Items');
+const Vendor = require('../models/Vendor');
+const Storage = require('../models/Storage');
+const mongoose = require('mongoose');
 
-
-
-/**
- * Add new item
- */
 exports.addItem = async (req, res) => {
-    const user = req.user;
-
-    // Ensure the user and their businessId are valid
-    if (!user || !user.businessId) {
-        return res.status(400).json({ success: false, message: 'Invalid user data.' });
-    }
-
-    const {
-        itemName,
-        itemType,
-        locationId = [], // Default to empty array if no location is provided
-        units,
-        sellInfo,
-        purchaseInfo,
-        gst,
-        taxPreference,
-        sku,
-        hsnOrSac,
-        stockValue,
-    } = req.body;
-
-    // Map through locationId to filter out invalid or empty entries
-    const validLocationId = locationId.map(locationEntry => {
-        if (locationEntry.quantity && !locationEntry.location) {
-            return { quantity: locationEntry.quantity }; // Save only quantity if location is empty
-        }
-        if (locationEntry.location && mongoose.Types.ObjectId.isValid(locationEntry.location)) {
-            return locationEntry; // Save full entry if location is valid
-        }
-        return null; // Ignore invalid entries
-    }).filter(entry => entry !== null); // Remove null entries
-
     try {
-        // Only check for vendor existence if vendorId is provided
-        if (purchaseInfo.vendorId) {
-            const vendorExists = await Vendor.findById(purchaseInfo.vendorId);
-            if (!vendorExists) {
-                return res.status(404).json({ success: false, message: 'Vendor not found.' });
-            }
+        const user = req.user;
+
+        if (!user || !user.businessId || !user.id) {
+            return res.status(400).json({ success: false, message: 'Invalid user data.' });
         }
 
-        // Create new item
-        const newItem = new Item({
-            businessId: user.businessId,
+        const {
             itemName,
             itemType,
-            locationId: validLocationId, // Only save valid locations or quantities
+            storage = [],
+            units = [],
+            sellInfo,
+            purchaseInfo,
+            gst,
+            taxPreference,
+            sku,
+            hsnOrSac
+        } = req.body;
+
+        if (!itemName || !itemType || !sellInfo || !purchaseInfo || purchaseInfo.purchasePrice == null) {
+            return res.status(400).json({ success: false, message: 'Missing required fields.' });
+        }
+
+        // Validate storage ObjectIds
+        const invalidStorageIds = storage.filter(loc => loc.storage && !mongoose.Types.ObjectId.isValid(loc.storage));
+        if (invalidStorageIds.length > 0) {
+            return res.status(400).json({ success: false, message: 'One or more storage locations have invalid ObjectId(s).' });
+        }
+
+        // Validate vendorId if provided
+        if (purchaseInfo.vendorId && !mongoose.Types.ObjectId.isValid(purchaseInfo.vendorId)) {
+            return res.status(400).json({ success: false, message: 'Invalid vendorId.' });
+        }
+
+        const newItem = new Item({
+            itemName,
+            itemType,
+            storage: storage.filter(loc => loc.storage), // Remove empty storage entries
             units,
             sellInfo,
             purchaseInfo: {
                 ...purchaseInfo,
-                vendorId: purchaseInfo.vendorId || null, // Save null if no vendor is selected
+                vendorId: purchaseInfo.vendorId || undefined // Set to undefined if empty
             },
             gst,
             taxPreference,
             sku,
             hsnOrSac,
-            stockValue,
+            userId: user.id,
+            businessId: user.businessId
         });
 
         await newItem.save();
 
-        res.status(201).json({ success: true, message: 'Item added successfully.', data: newItem });
+        res.status(201).json({ success: true, message: 'Item added successfully.', item: newItem });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Internal Server Error.' });
+        console.error('Error adding item:', error);
+        res.status(500).json({ success: false, message: 'Server error.', error: error.message });
     }
 };

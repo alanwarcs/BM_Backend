@@ -40,6 +40,12 @@ exports.addVendors = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Display Name is required.' });
     }
 
+    // Validate notes length
+    if (notes && notes.length > 500) {
+      return res.status(400).json({ success: false, message: 'Notes cannot exceed 500 characters.' });
+    }
+
+
     // Check if the organization exists
     const organization = await Organization.findById(user.businessId);
     if (!organization) {
@@ -303,6 +309,11 @@ exports.updateVendor = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Vendor ID is required.' });
     }
 
+    // Validate notes field
+    if (updateData.notes && updateData.notes.length > 500) {
+      return res.status(400).json({ success: false, message: 'Notes cannot exceed 500 characters.' });
+    }
+
     // Check if the vendor exists and belongs to the user's organization
     const vendor = await Vendor.findOne({ _id: vendorId, businessId: user.businessId });
 
@@ -392,8 +403,8 @@ exports.printVendorList = async (req, res) => {
                   const dbField = fieldMapping[field];
                   const value = dbField
                     ? dbField
-                        .split(".")
-                        .reduce((o, key) => (o ? o[key] : "-"), vendor)
+                      .split(".")
+                      .reduce((o, key) => (o ? o[key] : "-"), vendor)
                     : "-";
                   return `<td>${formatFieldValue(value, field)}</td>`;
                 })

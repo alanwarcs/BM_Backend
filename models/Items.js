@@ -1,112 +1,125 @@
 const mongoose = require('mongoose');
 
 const itemSchema = new mongoose.Schema({
-    businessId: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Business', 
-        required: true 
-    }, 
-    itemType: { 
-        type: String, 
-        enum: ['Services', 'Product'], 
-        required: true 
-    }, 
-    itemName: { 
-        type: String, 
-        required: true 
+    businessId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Business',
+        required: true
     },
-    locationId: [
+    itemType: {
+        type: String,
+        enum: ['Services', 'Product'],
+        required: [true, 'Item type is required']
+    },
+    itemName: {
+        type: String,
+        required: [true, 'Item name is required']
+    },
+    storage: [
         {
-            location: {
+            storage: {
                 type: mongoose.Schema.Types.ObjectId,
-                ref: 'Location',
-                required: false // Make location optional
+                ref: 'Storage',
+                required: false
             },
             quantity: {
                 type: Number,
-                required: false, // Quantity should be optional but can be set if location exists
-                default: 0 // Default quantity
+                required: false,
+                default: 0
             }
         }
     ],
     units: [
         {
-            category: { 
-                type: String, 
-                required: true 
+            category: {
+                type: String,
+                required: function() { return this.value > 0; }  // category required if value is entered
             },
-            value: { 
+            value: {
                 type: Number,
+                default: 1
             },
-            unit: { 
-                type: String, 
-                required: true 
+            unit: {
+                type: String,
+                required: function() { return this.value > 0; }  // unit required if value is entered
             },
-            description: { 
-                type: String 
+            description: {
+                type: String,
+                default: ''
             }
         }
     ],
-    sellInfo: { 
-        price: { 
-            type: mongoose.Schema.Types.Decimal128, 
-            required: true 
-        },
-        currency: { 
-            type: String, 
-            required: true,
-            default: 'INR' 
-        }
-    },
-    purchaseInfo: { 
-        purchasePrice: { 
-            type: mongoose.Schema.Types.Decimal128, 
-            required: true 
-        }, 
-        purchaseCurrency: { 
-            type: String, 
-            required: true,
-            default: 'INR' 
-        }, 
-        vendorId: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: 'Vendor'
-        }
-    },
-    gst: { 
-        intraStateGST: { 
+    sellInfo: {
+        price: {
             type: mongoose.Schema.Types.Decimal128,
-            default: 0 
+            required: [true, 'Cell price is required'],
+            get: v => parseFloat(v.toString()) // Return as number
         },
-        interStateGST: { 
-            type: mongoose.Schema.Types.Decimal128,
-            default: 0 
+        currency: {
+            type: String,
+            required: [true, 'Currency for cell price is required'],
+            default: 'INR'
         }
     },
-    taxPreference: { 
-        type: String, 
-        enum: ['GST Inclusive', 'GST Exclusive', 'No GST'], 
-        required: true, 
-        default: 'GST Exclusive' 
+    purchaseInfo: {
+        purchasePrice: {
+            type: mongoose.Schema.Types.Decimal128,
+            required: [true, 'Purchase price is required'],
+            get: v => parseFloat(v.toString()) // Return as number
+        },
+        purchaseCurrency: {
+            type: String,
+            required: [true, 'Currency for purchase price is required'],
+            default: 'INR'
+        },
+        vendorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Vendor',
+            required: false
+        }
     },
-    sku: { 
-        type: String 
+    gst: {
+        intraStateGST: {
+            type: mongoose.Schema.Types.Decimal128,
+            default: 0,
+            get: v => parseFloat(v.toString()) // Return as number
+        },
+        interStateGST: {
+            type: mongoose.Schema.Types.Decimal128,
+            default: 0,
+            get: v => parseFloat(v.toString()) // Return as number
+        }
     },
-    hsnOrSac: { 
-        type: String 
+    taxPreference: {
+        type: String,
+        enum: ['GST Inclusive', 'GST Exclusive', 'No GST'],
+        required: [true, 'Tax preference is required'],
+        default: 'GST Exclusive'
     },
-    stockValue: { 
-        type: mongoose.Schema.Types.Decimal128, 
-        default: 0 // Calculated as quantity * sell price
+    sku: {
+        type: String,
+        default: ''
     },
-    createdAt: { 
-        type: Date, 
-        default: Date.now 
+    hsnOrSac: {
+        type: String,
+        default: ''
     },
-    updatedAt: { 
-        type: Date, 
-        default: Date.now 
+    stockValue: {
+        type: mongoose.Schema.Types.Decimal128,
+        default: 0,
+        get: v => parseFloat(v.toString()) // Return as number
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     }
+}, { 
+    toJSON: { getters: true }, // Enable getters in JSON output
+    toObject: { getters: true } 
 });
 
 // Middleware to auto-update `updatedAt`
@@ -114,17 +127,6 @@ itemSchema.pre('save', function(next) {
     this.updatedAt = Date.now();
     next();
 });
-
-// Optional method to calculate total stock across all locations
-itemSchema.methods.calculateTotalStock = function() {
-    return this.locationId.reduce((total, location) => total + location.quantity, 0);
-};
-
-// Optional method to calculate stock value
-itemSchema.methods.calculateStockValue = function() {
-    const totalQuantity = this.calculateTotalStock();
-    return totalQuantity * parseFloat(this.sellInfo.price.toString());
-};
 
 const Item = mongoose.model('Item', itemSchema);
 

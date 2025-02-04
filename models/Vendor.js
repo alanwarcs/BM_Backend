@@ -65,7 +65,10 @@ const vendorSchema = new mongoose.Schema({
     default: 'INR',
   },
   tags: [String],
-  notes: String,
+  notes: {
+    type: String,
+    maxlength: 500,
+  },
 
   // Custom fields
   customFields: [
