@@ -82,7 +82,7 @@ exports.addVendors = async (req, res) => {
 };
 
 /**
- * Get all Vendors.
+ * Get All Vendors (Search All, Return Limited Fields).
  */
 exports.getVendors = async (req, res) => {
   try {
@@ -97,14 +97,14 @@ exports.getVendors = async (req, res) => {
     // Build the query object
     const query = { businessId: user.businessId };
 
-    // Handle GST filter
+    // GST Filter
     if (gstRegistered === 'gstRegistered') {
       query['taxDetails.taxStatus'] = 'gstRegistered';
     } else if (gstRegistered === 'unregistered') {
       query['taxDetails.taxStatus'] = 'unregistered';
     }
 
-    // Handle search filter
+    // Search Filter
     if (search) {
       query.$or = [
         { vendorOrganizationName: { $regex: search, $options: 'i' } },
@@ -127,26 +127,24 @@ exports.getVendors = async (req, res) => {
         { 'bankDetails.ifscCode': { $regex: search, $options: 'i' } },
         { currency: { $regex: search, $options: 'i' } },
       ];
-    } else {
-      // If search is empty or not provided, fetch all vendors (you can adjust this logic based on your preference)
-      query.$or = [{ vendorOrganizationName: { $regex: '', $options: 'i' } }];
     }
 
-    // Pagination
     const skip = (page - 1) * limit;
 
-    // Fetch vendors based on query
-    const vendors = await Vendor.find(query)
+    // Fetch vendors (selecting only the required fields)
+    const vendors = await Vendor.find(query, {
+      vendorOrganizationName: 1,
+      primaryPerson: 1,
+      emailAddress: 1,
+      phone: 1,
+    })
       .skip(skip)
       .limit(Number(limit));
 
-
-
-    // Count total vendors for pagination
     const totalVendors = await Vendor.countDocuments(query);
     const totalPages = Math.ceil(totalVendors / limit);
 
-    // Send response with data and pagination
+    // Response
     res.status(200).json({
       success: true,
       data: {
@@ -163,6 +161,80 @@ exports.getVendors = async (req, res) => {
       success: false,
       message: 'Error fetching vendors',
       error: error.message,
+    });
+  }
+};
+
+/**
+ * Get Vendor Names & IDs (For Dropdowns).
+ */
+exports.getVendorList = async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user || !user.businessId) {
+      return res.status(400).json({ success: false, message: 'Invalid user data.' });
+    }
+
+    // Fetch only the necessary fields
+    const vendors = await Vendor.find(
+      { businessId: user.businessId },
+      { _id: 1, displayName: 1 } // Only select _id and vendorOrganizationName
+    );
+
+    res.status(200).json({
+      success: true,
+      data: vendors.map((vendor) => ({
+        id: vendor._id,
+        displayName: vendor.displayName,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching vendor names.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get Vendor Details.
+ * Get Vendor details by its ID, ensuring it belongs to the user's organization.
+ */
+exports.getVendorDetails = async (req, res) => {
+  try {
+    const user = req.user;
+
+    // Validate user object
+    if (!user || !user.businessId || !user.id) {
+      return res.status(400).json({ success: false, message: 'Invalid user data.' });
+    }
+
+    const { vendorId } = req.params;
+
+    // Ensure vendorId is provided
+    if (!vendorId) {
+      return res.status(400).json({ success: false, message: 'Vendor ID is required.' });
+    }
+
+    // Find the vendor to ensure it exists and belongs to the user's organization
+    const vendor = await Vendor.findOne({ _id: vendorId, businessId: user.businessId });
+
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found or unauthorized access.' });
+    }
+
+    // Return the vendor details
+    res.status(200).json({
+      success: true,
+      vendorDetails: vendor,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching vendor details.',
+      error: error.message, // Return only the error message for better security
     });
   }
 };
@@ -206,47 +278,6 @@ exports.deleteVendor = async (req, res) => {
       success: false,
       message: 'An error occurred while deleting the vendor.',
       error: error.message,
-    });
-  }
-};
-
-/**
- * Get Vendor Details.
- * Get Vendor details by its ID, ensuring it belongs to the user's organization.
- */
-exports.getVendorDetails = async (req, res) => {
-  try {
-    const user = req.user;
-
-    // Validate user object
-    if (!user || !user.businessId || !user.id) {
-      return res.status(400).json({ success: false, message: 'Invalid user data.' });
-    }
-
-    const { vendorId } = req.params;
-
-    // Ensure vendorId is provided
-    if (!vendorId) {
-      return res.status(400).json({ success: false, message: 'Vendor ID is required.' });
-    }
-
-    // Find the vendor to ensure it exists and belongs to the user's organization
-    const vendor = await Vendor.findOne({ _id: vendorId, businessId: user.businessId });
-
-    if (!vendor) {
-      return res.status(404).json({ success: false, message: 'Vendor not found or unauthorized access.' });
-    }
-
-    // Return the vendor details
-    res.status(200).json({
-      success: true,
-      vendorDetails: vendor,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching vendor details.',
-      error: error.message, // Return only the error message for better security
     });
   }
 };

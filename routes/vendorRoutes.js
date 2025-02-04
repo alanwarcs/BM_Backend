@@ -1,5 +1,5 @@
 const express = require('express');
-const { addVendors, getVendors, getVendorDetails, updateVendor, deleteVendor, printVendorList } = require('../controllers/VendorController');
+const { addVendors, getVendors, getVendorList, getVendorDetails, updateVendor, deleteVendor, printVendorList } = require('../controllers/VendorController');
 const { authMiddleware } = require('../middlewares/authMiddleware'); // Assuming you have an auth middleware to protect routes
 
 const router = express.Router();
@@ -9,6 +9,9 @@ router.post('/addVendors', authMiddleware, addVendors);
 
 // Get Vendors Route
 router.get('/vendors', authMiddleware, getVendors);
+
+// Get Vendor Names & IDs for Dropdowns
+router.get('/vendors/list', authMiddleware, getVendorList);
 
 // get Vendor details based on id Route
 router.get('/getVendorDetails/:vendorId', authMiddleware, getVendorDetails);

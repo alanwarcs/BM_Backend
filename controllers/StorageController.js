@@ -95,6 +95,34 @@ exports.getStorage = async (req, res) => {
 };
 
 /**
+ * Get all storage records (No pagination, No filters, Only name and id)
+ */
+exports.getStorageList = async (req, res) => {
+    const user = req.user;
+
+    if (!user || !user.businessId) {
+        return res.status(400).json({ success: false, message: 'Invalid user data.' });
+    }
+
+    try {
+        // Fetch all storage records with only name and id fields
+        const storages = await Storage.find({ businessId: user.businessId }, {
+            storageName: 1,
+            _id: 1
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Storage retrieved successfully.',
+            data: { storage: storages },
+        });
+    } catch (error) {
+        console.error('Error fetching storage:', error);
+        res.status(500).json({ success: false, message: 'Failed to retrieve storage. Please try again later.' });
+    }
+};
+
+/**
  * Delete Storage.
  * Deletes a Storage item by its ID, ensuring it belongs to the user's organization.
  */
