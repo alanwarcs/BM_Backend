@@ -37,7 +37,6 @@ const itemSchema = new mongoose.Schema({
             },
             value: {
                 type: Number,
-                default: 1
             },
             unit: {
                 type: String,

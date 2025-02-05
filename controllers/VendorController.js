@@ -14,7 +14,6 @@ exports.addVendors = async (req, res) => {
   try {
     const user = req.user;
 
-    // Ensure the user and their businessId are valid
     if (!user || !user.businessId || !user.id) {
       return res.status(400).json({ success: false, message: 'Invalid user data.' });
     }
@@ -35,26 +34,25 @@ exports.addVendors = async (req, res) => {
       customFields,
     } = req.body;
 
-    // Validate required fields
     if (!displayName) {
       return res.status(400).json({ success: false, message: 'Display Name is required.' });
     }
 
-    // Validate notes length
     if (notes && notes.length > 500) {
       return res.status(400).json({ success: false, message: 'Notes cannot exceed 500 characters.' });
     }
 
-
-    // Check if the organization exists
     const organization = await Organization.findById(user.businessId);
     if (!organization) {
       return res.status(404).json({ success: false, message: 'Organization not found.' });
     }
 
-    // Create a new vendor
+    // Filter out empty bankDetails and customFields
+    const filteredBankDetails = (bankDetails || []).filter(bank => bank.accountNumber && bank.bankName);
+    const filteredCustomFields = (customFields || []).filter(field => field.key && field.value);
+
     const newVendor = new Vendor({
-      businessId: user.businessId, // Link the vendor to the organization
+      businessId: user.businessId,
       vendorOrganizationName,
       primaryPerson,
       displayName,
@@ -63,14 +61,13 @@ exports.addVendors = async (req, res) => {
       shippingAddress,
       billingAddress,
       taxDetails,
-      bankDetails,
+      bankDetails: filteredBankDetails,
       currency,
       tags,
       notes,
-      customFields,
+      customFields: filteredCustomFields,
     });
 
-    // Save the vendor to the database
     await newVendor.save();
 
     res.status(201).json({
@@ -296,34 +293,37 @@ exports.updateVendor = async (req, res) => {
   try {
     const user = req.user;
 
-    // Validate user object
     if (!user || !user.businessId || !user.id) {
       return res.status(400).json({ success: false, message: 'Invalid user data.' });
     }
 
-    const { vendorId } = req.params; // Vendor ID from request params
-    const updateData = req.body; // Data to update from the request body
+    const { vendorId } = req.params;
+    let updateData = req.body;
 
-    // Ensure vendorId is provided
     if (!vendorId) {
       return res.status(400).json({ success: false, message: 'Vendor ID is required.' });
     }
 
-    // Validate notes field
     if (updateData.notes && updateData.notes.length > 500) {
       return res.status(400).json({ success: false, message: 'Notes cannot exceed 500 characters.' });
     }
 
-    // Check if the vendor exists and belongs to the user's organization
     const vendor = await Vendor.findOne({ _id: vendorId, businessId: user.businessId });
-
     if (!vendor) {
       return res.status(404).json({ success: false, message: 'Vendor not found or unauthorized access.' });
     }
 
-    // Update the vendor's details
-    Object.assign(vendor, updateData); // Merge the updateData into the vendor object
-    await vendor.save(); // Save the updated vendor
+    // Filter out empty bankDetails and customFields if they exist in the update
+    if (updateData.bankDetails) {
+      updateData.bankDetails = updateData.bankDetails.filter(bank => bank.accountNumber && bank.bankName);
+    }
+
+    if (updateData.customFields) {
+      updateData.customFields = updateData.customFields.filter(field => field.key && field.value);
+    }
+
+    Object.assign(vendor, updateData);
+    await vendor.save();
 
     res.status(200).json({
       success: true,

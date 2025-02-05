@@ -2,12 +2,12 @@ const Item = require('../models/Items');
 const Vendor = require('../models/Vendor');
 const Storage = require('../models/Storage');
 const mongoose = require('mongoose');
-
 exports.addItem = async (req, res) => {
     try {
         const user = req.user;
 
-        if (!user || !user.businessId || !user.id) {
+    
+    if (!user || !user.businessId || !user.id) {
             return res.status(400).json({ success: false, message: 'Invalid user data.' });
         }
 
@@ -43,7 +43,7 @@ exports.addItem = async (req, res) => {
             itemName,
             itemType,
             storage: storage.filter(loc => loc.storage), // Remove empty storage entries
-            units,
+            units: units.filter(unit => unit.category.trim() !== '' && unit.unit.trim() !== ''), // Filter out empty units
             sellInfo,
             purchaseInfo: {
                 ...purchaseInfo,
