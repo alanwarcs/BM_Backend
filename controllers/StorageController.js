@@ -89,7 +89,6 @@ exports.getStorage = async (req, res) => {
             data: { storage: storages, pagination: { totalPages: Math.ceil(totalStorage / limit), currentPage: Number(page) } },
         });
     } catch (error) {
-        console.error('Error fetching storage:', error);
         res.status(500).json({ success: false, message: 'Failed to retrieve storage. Please try again later.' });
     }
 };
