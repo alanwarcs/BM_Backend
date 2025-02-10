@@ -49,8 +49,7 @@ exports.addVendors = async (req, res) => {
 
     // Filter out empty bankDetails and customFields
     const filteredBankDetails = (bankDetails || []).filter(bank => bank.accountNumber && bank.bankName);
-    const filteredCustomFields = (customFields || []).filter(field => field.key && field.value);
-
+    const filteredCustomFields = (customFields || []).filter(field => field.fieldName && field.fieldValue);
     const newVendor = new Vendor({
       businessId: user.businessId,
       vendorOrganizationName,
@@ -319,8 +318,9 @@ exports.updateVendor = async (req, res) => {
     }
 
     if (updateData.customFields) {
-      updateData.customFields = updateData.customFields.filter(field => field.key && field.value);
-    }
+      updateData.customFields = updateData.customFields
+        .filter(field => field.fieldName && field.fieldValue);
+    }    
 
     Object.assign(vendor, updateData);
     await vendor.save();
@@ -414,7 +414,6 @@ exports.printVendorList = async (req, res) => {
     res.setHeader("Content-Type", "text/html");
     res.send(html);
   } catch (error) {
-    console.error(error);
     res.status(500).send("Failed to generate vendor list");
   }
 };

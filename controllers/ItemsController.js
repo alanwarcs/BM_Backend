@@ -2,6 +2,8 @@ const Item = require('../models/Items');
 const Vendor = require('../models/Vendor');
 const Storage = require('../models/Storage');
 const mongoose = require('mongoose');
+const fs = require("fs");
+const path = require("path");
 
 /**
  * add new Items to DataBase
@@ -99,16 +101,16 @@ exports.getItem = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid user data.' });
     }
 
-    const { 
-        page = 1, 
-        limit = 13, 
-        search, 
-        itemType, 
-        minValue, 
-        maxValue, 
-        taxPreference 
+    const {
+        page = 1,
+        limit = 13,
+        search,
+        itemType,
+        minValue,
+        maxValue,
+        taxPreference
     } = req.query
-    
+
     const query = { businessId: user.businessId };
 
     if (itemType) {
@@ -154,5 +156,129 @@ exports.getItem = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Failed to retrieve items. Please try again later.' });
+    }
+};
+
+/**
+ * Delete Items.
+ * Deletes a Items by its ID, ensuring it belongs to the user's organization.
+ */
+exports.deleteItems = async (req, res) => {
+    try {
+        const user = req.user;
+
+        // Ensure the user and their businessId are valid
+        if (!user || !user.businessId || !user.id) {
+            return res.status(400).json({ success: false, message: 'Invalid user data.' });
+        }
+
+        const { itemsId } = req.params;
+
+        // Ensure itemsId is provided
+        if (!itemsId) {
+            return res.status(400).json({ success: false, message: 'Items ID is required.' });
+        }
+
+        // Find the items to ensure it exists and belongs to the user's organization
+        const items = await Item.findOne({ _id: itemsId, businessId: user.businessId });
+
+        if (!items) {
+            return res.status(404).json({ success: false, message: 'Items not found or unauthorized access.' });
+        }
+
+        // Delete the Items
+        await items.deleteOne({ _id: itemsId });
+
+        res.status(200).json({
+            success: true,
+            message: 'Items deleted successfully.',
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while deleting the Items.',
+            error: error.message,
+        });
+    }
+};
+
+/**
+ * Print Item List.
+ */
+exports.printItemList = async (req, res) => {
+    try {
+        const { selectedItems } = req.body;
+
+        if (!selectedItems || Object.keys(selectedItems).length === 0) {
+            return res.status(400).send("Selected items or fields are missing.");
+        }
+
+        const itemIds = Object.keys(selectedItems);
+        const items = await Item.find({ _id: { $in: itemIds } });
+
+        const fieldMapping = {
+            "Item Name": "itemName",
+            "Item Type": "itemType",
+            "SAC/HSN": "hsnOrSac",
+            "SKU": "sku",
+            "Sell Price": "sellInfo.price",
+            "Purchase Price": "purchaseInfo.purchasePrice",
+            "Tax Preference": "taxPreference",
+            "Available Stock": "storage", // Sum of storage quantities
+            "Stock Value": "stockValue",
+            "Intra-State GST": "gst.intraStateGST",
+            "Inter-State GST": "gst.interStateGST"
+        };
+
+        const templatePath = path.join(__dirname, "..", "templates", "itemsList.html");
+        const templateHTML = fs.readFileSync(templatePath, "utf-8");
+
+        const generateHTML = (items) => {
+            return templateHTML
+                .replace(
+                    "{{HEADERS}}",
+                    Object.keys(fieldMapping).map((field) => `<th>${field}</th>`).join("")
+                )
+                .replace(
+                    "{{ROWS}}",
+                    items.map(item => 
+                        `<tr>${Object.keys(fieldMapping)
+                            .map((field) => {
+                                let value;
+
+                                switch (field) {
+                                    case "Sell Price":
+                                        value = item.sellInfo?.price ? `₹${item.sellInfo.price}` : "-";
+                                        break;
+                                    case "Purchase Price":
+                                        value = item.purchaseInfo?.purchasePrice ? `₹${item.purchaseInfo.purchasePrice}` : "-";
+                                        break;
+                                    case "Intra-State GST":
+                                        value = item.gst?.intraStateGST ? `${item.gst.intraStateGST}%` : "0%";
+                                        break;
+                                    case "Inter-State GST":
+                                        value = item.gst?.interStateGST ? `${item.gst.interStateGST}%` : "0%";
+                                        break;
+                                    case "Available Stock":
+                                        value = item.storage?.reduce((sum, storage) => sum + (storage.quantity || 0), 0) || 0;
+                                        break;
+                                    default:
+                                        value = fieldMapping[field].split('.').reduce((acc, key) => acc && acc[key], item) || "-";
+                                }
+
+                                return `<td>${value}</td>`;
+                            })
+                            .join("")}</tr>`
+                    ).join("")
+                );
+        };
+
+        const html = generateHTML(items);
+
+        res.setHeader("Content-Type", "text/html");
+        res.send(html);
+    } catch (error) {
+        console.error("Error generating item list:", error);
+        res.status(500).send("Failed to generate item list");
     }
 };
