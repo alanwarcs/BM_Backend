@@ -344,21 +344,15 @@ exports.updateVendor = async (req, res) => {
  */
 exports.printVendorList = async (req, res) => {
   try {
-    // Get selected vendors and fields from the request body
     const { selectedVendors, selectedFields } = req.body;
 
-    // Validate if the selected vendors or fields are missing
     if (!selectedVendors || !selectedFields || selectedVendors.length === 0) {
       return res.status(400).send("Selected vendors or fields are missing.");
     }
 
-    // Extract vendor IDs (keys of the selectedVendors object) and use them directly
     const vendorIds = Object.keys(selectedVendors);
-
-    // Fetch only the selected vendors from the database
     const vendors = await Vendor.find({ _id: { $in: vendorIds } });
 
-    // Field mapping (can be extended or modified as per your model)
     const fieldMapping = {
       "Organization Name": "vendorOrganizationName",
       "Primary Person Name": "primaryPerson",
@@ -371,23 +365,25 @@ exports.printVendorList = async (req, res) => {
       "PAN Number": "taxDetails.panNumber",
     };
 
-    // Function to format field values (e.g., handle null or undefined)
+    const secureFields = ["GSTIN", "PAN Number"];
+
     const formatFieldValue = (value, fieldName) => {
-      // If the field is an address, format it accordingly
       if (fieldName === "Shipping Address" || fieldName === "Billing Address") {
-        if (value && value.addressLine1) {
-          return `${value.addressLine1}, ${value.city}, ${value.state}, ${value.country}, ${value.postalCode}`;
-        }
-        return "-";
+        return value && value.addressLine1
+          ? `${value.addressLine1}, ${value.city}, ${value.state}, ${value.country}, ${value.postalCode}`
+          : "-";
       }
+
+      if (secureFields.includes(fieldName)) {
+        return `<span class="hidden-field">Protected</span>`;
+      }
+
       return value || "-";
     };
 
-    // Read the HTML template
     const templatePath = path.join(__dirname, "..", "templates", "vendorList.html");
     const templateHTML = fs.readFileSync(templatePath, "utf-8");
 
-    // Function to generate the HTML dynamically based on selected fields and vendors
     const generateHTML = (vendors, selectedFields) => {
       return templateHTML
         .replace(
@@ -397,34 +393,28 @@ exports.printVendorList = async (req, res) => {
         .replace(
           "{{ROWS}}",
           vendors
-            .map((vendor) =>
-              `<tr>${selectedFields
-                .map((field) => {
-                  const dbField = fieldMapping[field];
-                  const value = dbField
-                    ? dbField
-                      .split(".")
-                      .reduce((o, key) => (o ? o[key] : "-"), vendor)
-                    : "-";
-                  return `<td>${formatFieldValue(value, field)}</td>`;
-                })
-                .join("")}</tr>`
+            .map(
+              (vendor) =>
+                `<tr>${selectedFields
+                  .map((field) => {
+                    const dbField = fieldMapping[field];
+                    const value = dbField
+                      ? dbField.split(".").reduce((o, key) => (o ? o[key] : "-"), vendor)
+                      : "-";
+                    return `<td>${formatFieldValue(value, field)}</td>`;
+                  })
+                  .join("")}</tr>`
             )
             .join("")
         );
     };
 
-    // Generate HTML content
     const html = generateHTML(vendors, selectedFields);
 
-    // Send HTML as a response to the frontend (can be downloaded or viewed directly)
     res.setHeader("Content-Type", "text/html");
     res.send(html);
-
   } catch (error) {
     console.error(error);
     res.status(500).send("Failed to generate vendor list");
   }
 };
-
-
