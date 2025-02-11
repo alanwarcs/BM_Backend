@@ -160,6 +160,111 @@ exports.getItem = async (req, res) => {
 };
 
 /**
+ * Get item Details.
+ * Get item details by its ID, ensuring it belongs to the user's organization.
+ */
+exports.getItemDetails = async (req, res) => {
+  try {
+    const user = req.user;
+
+    // Validate user object
+    if (!user || !user.businessId || !user.id) {
+      return res.status(400).json({ success: false, message: 'Invalid user data.' });
+    }
+
+    const { itemId } = req.params;
+
+    // Ensure itemId is provided
+    if (!itemId) {
+      return res.status(400).json({ success: false, message: 'Item ID is required.' });
+    }
+
+    // Find the item to ensure it exists and belongs to the user's organization
+    const item = await Item.findOne({ _id: itemId, businessId: user.businessId });
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Item not found or unauthorized access.' });
+    }
+
+    // Return the item details
+    res.status(200).json({
+      success: true,
+      itemDetails: item,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching item details.',
+      error: error.message, // Return only the error message for better security
+    });
+  }
+};
+
+/**
+ * Update Item.
+ * Updates a Item's details by its ID, ensuring it belongs to the user's organization.
+ */
+exports.updateItem = async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user || !user.businessId || !user.id) {
+      return res.status(400).json({ success: false, message: 'Invalid user data.' });
+    }
+
+    const { itemId } = req.params;
+    let updateData = req.body;
+
+    if (!itemId) {
+      return res.status(400).json({ success: false, message: 'Item ID is required.' });
+    }
+
+    const item = await Item.findOne({ _id: itemId, businessId: user.businessId });
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Item not found or unauthorized access.' });
+    }
+
+    const { itemName, itemType, sellInfo, purchaseInfo } = updateData;
+
+    if (!itemName || !itemType || !sellInfo || !purchaseInfo || purchaseInfo.purchasePrice == null) {
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    }
+
+    // Validate storage ObjectIds
+    const invalidStorageIds = updateData.storage?.filter(loc => loc.storage && !mongoose.Types.ObjectId.isValid(loc.storage)) || [];
+    if (invalidStorageIds.length > 0) {
+      return res.status(400).json({ success: false, message: 'One or more storage locations have invalid ObjectId(s).' });
+    }
+
+    // Check if all storage locations exist in the database
+    const storageIds = updateData.storage?.map(loc => loc.storage).filter(id => id) || []; // Remove empty storage IDs
+    if (storageIds.length > 0) {
+      const existingStorageCount = await Storage.countDocuments({ _id: { $in: storageIds } });
+
+      if (existingStorageCount !== storageIds.length) {
+        return res.status(404).json({ success: false, message: 'One or more storage locations not found.' });
+      }
+    }
+
+    Object.assign(item, updateData);
+    await item.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Item updated successfully.',
+      updatedItem: item,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating the Item.',
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Delete Items.
  * Deletes a Items by its ID, ensuring it belongs to the user's organization.
  */
