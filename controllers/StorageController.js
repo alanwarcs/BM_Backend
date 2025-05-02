@@ -43,7 +43,7 @@ exports.addStorage = async (req, res) => {
             capacity: capacity || undefined,
             capacityUnit: capacityUnit?.trim() || undefined,  // Skip empty string
         });
-        
+
         await newItem.save();
 
         res.status(201).json({ success: true, message: 'Storage added successfully.', data: newItem });
@@ -90,6 +90,45 @@ exports.getStorage = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Failed to retrieve storage. Please try again later.' });
+    }
+};
+
+/**
+ * Get storage record based on id with pagination and filtering
+ */
+exports.getStorageDetails = async (req, res) => {
+    try {
+        const user = req.user;
+
+        if (!user || !user.businessId) {
+            return res.status(400).json({ success: false, message: 'Invalid user data.' });
+        }
+
+        const { storageId } = req.params;
+
+        // Ensure storageId is provided
+        if (!storageId) {
+            return res.status(400).json({ success: false, message: 'Storage ID is required.' });
+        }
+
+        // Find the storage to ensure it exists and belongs to the user's organization
+        const storage = await Storage.findOne({ _id: storageId, businessId: user.businessId });
+
+        if (!storage) {
+            return res.status(404).json({ success: false, message: 'Storage not found or unauthorized access.' });
+        }
+
+        // Return the storage details
+        res.status(200).json({
+            success: true,
+            storage: storage,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching storage details.',
+            error: error.message, // Return only the error message for better security
+        });
     }
 };
 

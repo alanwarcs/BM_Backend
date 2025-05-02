@@ -1,7 +1,7 @@
 // routes/authRoutes.js
 
 const express = require('express');
-const { addStorage, getStorage, getStorageList, deleteStorage, updateStorage } = require('../controllers/StorageController');
+const { addStorage, getStorage, getStorageList, getStorageDetails, deleteStorage, updateStorage } = require('../controllers/StorageController');
 const { authMiddleware } = require('../middlewares/authMiddleware'); // Assuming you have an auth middleware to protect routes
 
 const router = express.Router();
@@ -11,6 +11,9 @@ router.get('/', authMiddleware, getStorage);
 
 // Route for get storages
 router.get('/getList', authMiddleware, getStorageList);
+
+// Route for get storages
+router.get('/getStorageDetails/:storageId', authMiddleware, getStorageDetails);
 
 // Route for add new storage location
 router.post('/addstorage', authMiddleware, addStorage);
