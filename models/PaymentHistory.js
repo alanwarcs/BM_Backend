@@ -1,22 +1,45 @@
-// models/PaymentHistory.js
 const mongoose = require('mongoose');
 
 const paymentHistorySchema = new mongoose.Schema({
-    businessId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
-    staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff', required: true },
-    paymentDate: { type: Date, required: true },
-    paymentId: { type: String },
-    orderId: { type: String, required: true },
-    status: { type: String, required: true },
-    amount: { type: mongoose.Schema.Types.Decimal128, required: true },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now }
+  purchaseOrderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PurchaseOrder',
+    required: true
+  },
+  vendorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Vendor',
+    required: true
+  },
+  businessId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true
+  },
+  amountPaid: {
+    type: mongoose.Schema.Types.Decimal128,
+    required: true,
+    min: 0
+  },
+  paymentDate: {
+    type: Date,
+    required: true
+  },
+  modeOfPayment: {
+    type: String,
+    enum: ['Cash', 'Bank Transfer', 'Card', 'Cheque', 'UPI'],
+    required: true
+  },
+  paymentType: {
+    type: String,
+    enum: ['One-Go', 'EMI', 'Initial'],
+    required: true
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['Success', 'Failed'],
+    default: 'Success'
+  }
 });
 
-paymentHistorySchema.pre('save', function(next) {
-    this.updatedAt = Date.now();
-    next();
-});
-
-const PaymentHistory = mongoose.model('PaymentHistory', paymentHistorySchema);
-module.exports = PaymentHistory;
+module.exports = mongoose.model('PaymentHistory', paymentHistorySchema);
