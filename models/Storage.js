@@ -20,6 +20,12 @@ const storageSchema = new mongoose.Schema(
         storageAddress: { 
             type: String, 
         }, // Physical address of the storage/warehouse
+        storageState: { 
+            type: String, 
+        }, // State for the storage/warehouse
+        storageContact: { 
+            type: String, 
+        }, // Contact number for the storage/warehouse
         capacity: { 
             type: Number, 
             min: 0 // Ensure capacity is non-negative
