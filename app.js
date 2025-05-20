@@ -9,7 +9,8 @@ const planRoutes = require('./routes/planRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
 const itemsRoutes = require('./routes/itemsRoutes');
 const storageRoutes = require('./routes/storageRoutes');
-const businessRoutes = require('./routes/businessRoutes')
+const businessRoutes = require('./routes/businessRoutes');
+const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 
 // Initialize dotenv to load environment variables
 dotenv.config();
@@ -45,6 +46,8 @@ app.use('/api/item', itemsRoutes);
 app.use('/api/storage', storageRoutes);
 
 app.use('/api/business', businessRoutes);
+
+app.use('/api/purchase-order', purchaseOrderRoutes);
 
 // Environment variable for PORT or default to 3000
 const PORT = process.env.PORT || 3001;
