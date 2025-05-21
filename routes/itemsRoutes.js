@@ -1,13 +1,16 @@
 // routes/itemsRoutes.js
 
 const express = require('express');
-const { addItem, getItem, deleteItems, printItemList, getItemDetails, updateItem } = require('../controllers/ItemsController');
+const { addItem, getItem, getItemList, deleteItems, printItemList, getItemDetails, updateItem } = require('../controllers/ItemsController');
 const { authMiddleware } = require('../middlewares/authMiddleware'); // Assuming you have an auth middleware to protect routes
 
 const router = express.Router();
 
 // get Item Route
 router.get('/', authMiddleware, getItem);
+
+// get Item List Route
+router.get('/getItemList', authMiddleware, getItemList)
 
 // Add Item Route
 router.post('/addItem', authMiddleware, addItem);
