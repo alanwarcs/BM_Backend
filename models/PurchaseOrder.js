@@ -13,7 +13,7 @@ const purchaseOrderSchema = new mongoose.Schema({
   modeOfPayment: { type: String, enum: ['Cash', 'Bank Transfer', 'Cheque', 'Card', 'UPI', 'EMI'], default: '' },
   initialPaymentMethod: { type: String, enum: ['Cash', 'Bank Transfer', 'Cheque', 'Card', 'UPI', ''], default: '' },
   referenceNumber: { type: String },
-  billingAddress: {type: String, required: true },
+  billingAddress: { type: String, required: true },
   shippingAddress: { type: String, required: true },
   sourceState: { type: String, required: true },
   deliveryState: { type: String, required: true },
@@ -36,7 +36,7 @@ const purchaseOrderSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.Decimal128,
       default: '0'
     },
-    advancePayment:{
+    advancePayment: {
       type: mongoose.Schema.Types.Decimal128,
       default: '0'
     },
@@ -57,16 +57,23 @@ const purchaseOrderSchema = new mongoose.Schema({
       quantity: { type: Number, required: true },
       unit: { type: String, required: true },
       rate: { type: mongoose.Schema.Types.Decimal128, required: true },
-      tax: { type: Number, required: true },
-      discount: { type: mongoose.Schema.Types.Decimal128, default: '0' }, // Added discount field
-      cgstAmount: { type: mongoose.Schema.Types.Decimal128, default: '0' },
-      sgstAmount: { type: mongoose.Schema.Types.Decimal128, default: '0' },
-      igstAmount: { type: mongoose.Schema.Types.Decimal128, default: '0' },
+      inProductDiscount: { type: mongoose.Schema.Types.Decimal128, default: '0' },
+      inProductDiscountValueType: { type: String, enum: ['Amount', 'Percent'], default: 'Percent' }, 
+      taxes: [
+        {
+          type: { type: String, required: true }, // GST, Service Tax, etc.
+          subType: { type: String }, // Optional: CGST, SGST, IGST
+          rate: { type: Number, required: true }, // %
+          amount: { type: mongoose.Schema.Types.Decimal128, default: '0' }
+        }
+      ],
       totalPrice: { type: mongoose.Schema.Types.Decimal128, required: true }
     }
   ],
   discount: { type: mongoose.Schema.Types.Decimal128, default: '0' },
   discountType: { type: String, enum: ['Flat', 'Product'], default: 'Flat' }, // Added discountType
+  discountValueType: { type: String, enum: ['Amount', 'Percent'], default: 'Percent' }, 
+  totalAmountOfDiscount: { type: mongoose.Schema.Types.Decimal128, default: '0' }, // Added totalAmountOfDiscount
   roundOff: { type: Boolean, default: false }, // Added roundOff
   roundOffAmount: { type: mongoose.Schema.Types.Decimal128, default: '0' }, // Added roundOffAmount
   taxAmount: { type: mongoose.Schema.Types.Decimal128, required: true },
@@ -90,8 +97,8 @@ const purchaseOrderSchema = new mongoose.Schema({
 
 // Automatically update the 'updatedAt' field before saving the document
 purchaseOrderSchema.pre('save', function (next) {
-    this.updatedAt = Date.now();
-    next();
+  this.updatedAt = Date.now();
+  next();
 });
 
 const PurchaseOrder = mongoose.model('PurchaseOrder', purchaseOrderSchema);

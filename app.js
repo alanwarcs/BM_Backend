@@ -11,6 +11,7 @@ const itemsRoutes = require('./routes/itemsRoutes');
 const storageRoutes = require('./routes/storageRoutes');
 const businessRoutes = require('./routes/businessRoutes');
 const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
+const taxRoutes = require('./routes/taxRoutes');
 
 // Initialize dotenv to load environment variables
 dotenv.config();
@@ -46,6 +47,8 @@ app.use('/api/item', itemsRoutes);
 app.use('/api/storage', storageRoutes);
 
 app.use('/api/business', businessRoutes);
+
+app.use('/api/tax', taxRoutes);
 
 app.use('/api/purchase-order', purchaseOrderRoutes);
 

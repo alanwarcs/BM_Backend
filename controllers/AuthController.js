@@ -240,8 +240,6 @@ exports.validateUser = async (req, res) => {
     }
 };
 
-
-
 /**
  * Logs out the user by clearing the JWT cookie.
  */

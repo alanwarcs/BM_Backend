@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const taxSchema = new mongoose.Schema({
+    businessId: {
+        type:String, 
+        required: true
+    },
     name: { 
         type: String, 
         required: true 
