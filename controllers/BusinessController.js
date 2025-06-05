@@ -26,7 +26,9 @@ exports.getUserSummary = async (req, res) => {
                 country: org.country,
                 pincode: org.pincode
             },
-            organizationName: org.name || '' // Optional: Include additional fields if needed
+            organizationName: org.name || '',// Optional: Include additional fields if needed
+            email: org.email || '',
+            phone: org.phone || ''
         };
 
         return res.status(200).json({ message: 'Address fetched successfully.', summary });

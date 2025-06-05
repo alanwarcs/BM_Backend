@@ -55,6 +55,7 @@ const purchaseOrderSchema = new mongoose.Schema({
       productId: { type: mongoose.Schema.Types.ObjectId, required: true },
       productName: { type: String, required: true },
       quantity: { type: Number, required: true },
+      hsnOrSacCode: { type: String, required: true },
       unit: { type: String, required: true },
       rate: { type: mongoose.Schema.Types.Decimal128, required: true },
       inProductDiscount: { type: mongoose.Schema.Types.Decimal128, default: '0' },
@@ -80,6 +81,8 @@ const purchaseOrderSchema = new mongoose.Schema({
   totalAmount: { type: mongoose.Schema.Types.Decimal128, required: true },
   paidAmount: { type: mongoose.Schema.Types.Decimal128, required: true },
   dueAmount: { type: mongoose.Schema.Types.Decimal128, required: true },
+  deliveryTerms: { type: String }, // Added deliveryTerms
+  termsAndConditions: { type: String }, // Added termsAndConditions
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
   isDeleted: { type: Boolean, default: false },
