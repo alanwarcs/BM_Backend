@@ -24,14 +24,14 @@ const vendorPaymentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.Decimal128,
         required: true
     }, // Remaining amount after payment
-    modeOfPayment: {
-        type: String,
-        enum: ['Cash', 'Bank Transfer', 'Card', 'Cheque', 'UPI'],
-        required: true
-    },
     paymentType: {
         type: String,
-        enum: ['One-Go', 'EMI', 'Initial'],
+        enum: ['Full Payment', 'EMI', 'Advance', 'Final Settlement'],
+        required: true
+    },
+    paymentMode: {
+        type: String,
+        enum: ['Cash', 'Bank Transfer', 'Cheque', 'Card', 'UPI'],
         required: true
     },
     paymentStatus: {
