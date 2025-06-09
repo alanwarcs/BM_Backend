@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
 
 const taxSchema = new mongoose.Schema({
-    businessId: {
-        type:String, 
-        required: true
+    businessId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Organization', 
+        required: true 
     },
     name: { 
         type: String, 
