@@ -200,7 +200,7 @@ exports.setupAccount = async (req, res) => {
 exports.validateUser = async (req, res) => {
     try {
         if (req.user) {
-            const { _id, name, email, photo, businessId } = req.user;
+            const { id, name, email, photo, businessId } = req.user;
 
             // Fetch the latest active subscription
             const activeSubscription = await SubscriptionHistory.findOne({
@@ -216,7 +216,7 @@ exports.validateUser = async (req, res) => {
             return res.status(200).json({
                 message: 'Token is valid.',
                 user: {
-                    id: _id,
+                    id: id,
                     name,
                     email,
                     photo,
@@ -231,6 +231,7 @@ exports.validateUser = async (req, res) => {
                     },
                 },
             });
+            
         } else {
             return res.status(401).json({ message: 'Authentication failed.' });
         }
