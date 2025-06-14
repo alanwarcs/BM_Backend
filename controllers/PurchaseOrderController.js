@@ -14,7 +14,7 @@ exports.generatePurchaseOrder = async (req, res) => {
         if (!organization) {
             return res.status(404).json({ message: 'Organization not found' });
         }
-        
+
         // Fetch last purchase order for the organization
         const lastPurchaseOrder = await PurchaseOrder.findOne({ organizationId: user.businessId })
             .sort({ createdAt: -1 })
@@ -47,5 +47,18 @@ exports.generatePurchaseOrder = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+/**
+ * Create New Purchase Order
+*/
+exports.createPurchaseOrder = async (req, res) => {
+    try {
+
+
+    } catch (error) {
+        console.error('Error Creating Purchase Order', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}
 
 require('dotenv').config(); // For accessing environment variables
