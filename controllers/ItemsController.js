@@ -165,36 +165,37 @@ exports.getItem = async (req, res) => {
  * Get item details by User, ensuring it belongs to the user's organization.
  */
 exports.getItemList = async (req, res) => {
-  try {
-    const user = req.user;
+    try {
+        const user = req.user;
 
-    if (!user || !user.businessId) {
-      return res.status(400).json({ success: false, message: "Invalid user data." });
+        if (!user || !user.businessId) {
+            return res.status(400).json({ success: false, message: "Invalid user data." });
+        }
+
+        // Fetch all necessary fields
+        const items = await Item.find(
+            { businessId: user.businessId },
+            { _id: 1, itemName: 1, itemType: 1, purchaseInfo: 1, gst: 1, units: 1, hsnOrSac: 1, taxPreference: 1 }
+        );
+
+        res.status(200).json({
+            success: true,
+            data: items.map((item) => ({
+                id: item._id,
+                itemName: item.itemName,
+                itemType: item.itemType,
+                rate: item.purchaseInfo?.purchasePrice || 0, // Default to 0 if missing
+                hsnOrSac: item.hsnOrSac || "-",
+                taxPreference: item.taxPreference || "GST Exclusive", // Default value
+                intraStateGST: item.gst?.intraStateGST || 0, // Default to 0 if missing
+                interStateGST: item.gst?.interStateGST || 0, // Default to 0 if missing
+                unit: item.units?.[0]?.unit || "nos", // Default to "nos" if units is empty or missing
+            })),
+        });
+    } catch (error) {
+        console.error("Error in getItemList:", error); // Log the error for debugging
+        res.status(500).json({ success: false, message: "Failed to retrieve items. Please try again later." });
     }
-
-    // Fetch all necessary fields
-    const items = await Item.find(
-      { businessId: user.businessId },
-      { _id: 1, itemName: 1, itemType: 1, purchaseInfo: 1, gst: 1, units: 1 }
-    );
-
-    res.status(200).json({
-      success: true,
-      data: items.map((item) => ({
-        id: item._id,
-        itemName: item.itemName,
-        itemType: item.itemType,
-        rate: item.purchaseInfo?.purchasePrice || 0, // Default to 0 if missing
-        taxPreference: item.taxPreference || "GST Exclusive", // Default value
-        intraStateGST: item.gst?.intraStateGST || 0, // Default to 0 if missing
-        interStateGST: item.gst?.interStateGST || 0, // Default to 0 if missing
-        unit: item.units?.[0]?.unit || "nos", // Default to "nos" if units is empty or missing
-      })),
-    });
-  } catch (error) {
-    console.error("Error in getItemList:", error); // Log the error for debugging
-    res.status(500).json({ success: false, message: "Failed to retrieve items. Please try again later." });
-  }
 };
 
 /**
