@@ -52,13 +52,26 @@ exports.generatePurchaseOrder = async (req, res) => {
  * Create New Purchase Order
 */
 exports.createPurchaseOrder = async (req, res) => {
-    try {
+  try {
+    const user = req.user;
 
-
-    } catch (error) {
-        console.error('Error Creating Purchase Order', error);
-        res.status(500).json({ message: 'Internal server error' });
+    if (!user || !user.businessId || !user.id) {
+      return res.status(400).json({ success: false, message: 'Invalid user data.' });
     }
-}
+
+    const purchaseOrder = req.body;
+
+    console.log('Received Purchase Order:', purchaseOrder); // Should now print the correct object
+
+    // Do something with purchaseOrder...
+
+    res.status(201).json({ success: true, message: 'Purchase order created.' });
+
+  } catch (error) {
+    console.error('Error Creating Purchase Order', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 
 require('dotenv').config(); // For accessing environment variables
