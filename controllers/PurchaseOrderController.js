@@ -48,7 +48,8 @@ exports.generatePurchaseOrder = async (req, res) => {
                 },
                 phone: organization.phone,
                 email: organization.email,
-                gstNumber: organization.gstin,
+                gstNumber: organization.GSTIN,
+                gstStatus: organization.isGSTRegistered,
             }
         });
     } catch (error) {
