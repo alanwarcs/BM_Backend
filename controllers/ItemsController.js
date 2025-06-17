@@ -94,6 +94,9 @@ exports.addItem = async (req, res) => {
 /**
  * Get Items with filters and pagination
  */
+/**
+ * Get Items with filters and pagination
+ */
 exports.getItem = async (req, res) => {
     const user = req.user;
 
@@ -109,7 +112,7 @@ exports.getItem = async (req, res) => {
         minValue,
         maxValue,
         taxPreference
-    } = req.query
+    } = req.query;
 
     const query = { businessId: user.businessId };
 
@@ -135,21 +138,40 @@ exports.getItem = async (req, res) => {
     }
 
     try {
-        const maxStockValue = await Item.findOne(query).sort({ stockValue: -1 }).select('stockValue');
+        // Find max stock value for the query
+        const maxStockValue = await Item.findOne(query)
+            .sort({ stockValue: -1 })
+            .select('stockValue');
 
+        // Count total items for pagination
         const totalItems = await Item.countDocuments(query);
+
+        // Fetch items with selected fields only
         const items = await Item.find(query)
-            .skip((parseInt(page, 10) - 1) * (parseInt(limit, 10) || 13))
-            .limit(parseInt(limit, 10) || 13);
+            .select('itemName itemType sellInfo.price sellInfo.currency purchaseInfo.purchasePrice purchaseInfo.purchaseCurrency taxPreference storage stockValue')
+            .skip((parseInt(page, 10) - 1) * parseInt(limit, 10))
+            .limit(parseInt(limit, 10));
+
+        // Transform items to include available quantity
+        const transformedItems = items.map(item => ({
+            _id: item._id,
+            itemName: item.itemName,
+            itemType: item.itemType,
+            sellingPrice: item.sellInfo ? `${item.sellInfo.price} ${item.sellInfo.currency}` : '-',
+            purchasePrice: item.purchaseInfo ? `${item.purchaseInfo.purchasePrice} ${item.purchaseInfo.purchaseCurrency}` : '-',
+            taxPreference: item.taxPreference,
+            availableQty: item.storage ? item.storage.reduce((total, storage) => total + (storage.quantity || 0), 0) : 0,
+            stockValue: item.stockValue ? `${item.stockValue} Units` : '-'
+        }));
 
         res.status(200).json({
             success: true,
             message: 'Items retrieved successfully.',
             data: {
-                items,
+                items: transformedItems,
                 maxStockValue: maxStockValue ? maxStockValue.stockValue : 100,
                 pagination: {
-                    totalPages: Math.ceil(totalItems / (parseInt(limit, 10) || 13)),
+                    totalPages: Math.ceil(totalItems / parseInt(limit, 10)),
                     currentPage: parseInt(page, 10),
                 }
             },

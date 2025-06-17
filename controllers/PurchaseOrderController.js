@@ -204,3 +204,92 @@ exports.createPurchaseOrder = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+
+/**
+ * Get Purchase Orders with filters and pagination
+ */
+exports.getPurchaseOrder = async (req, res) => {
+    const user = req.user;
+
+    if (!user || !user.businessId) {
+        return res.status(400).json({ success: false, message: 'Invalid user data.' });
+    }
+
+    const {
+        page = 1,
+        limit = 13,
+        search,
+        status,
+        minAmount,
+        maxAmount,
+        paymentStatus
+    } = req.query;
+
+    const query = { 'business.id': user.businessId, isDeleted: false };
+
+    if (status) {
+        query.status = status;
+    }
+
+    if (search) {
+        query.$or = [
+            { poNumber: { $regex: search, $options: 'i' } },
+            { 'vendor.name': { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    if (minAmount || maxAmount) {
+        query.grandAmount = {};
+        if (minAmount) query.grandAmount.$gte = parseFloat(minAmount);
+        if (maxAmount) query.grandAmount.$lte = parseFloat(maxAmount);
+    }
+
+    if (paymentStatus) {
+        query.paymentStatus = paymentStatus;
+    }
+
+    try {
+        // Find min and max grand amount for the query
+        const maxGrandAmount = await PurchaseOrder.findOne(query)
+            .sort({ grandAmount: -1 })
+            .select('grandAmount');
+        const minGrandAmount = await PurchaseOrder.findOne(query)
+            .sort({ grandAmount: 1 })
+            .select('grandAmount');
+
+        // Count total purchase orders for pagination
+        const totalPurchaseOrders = await PurchaseOrder.countDocuments(query);
+
+        // Fetch purchase orders with selected fields only
+        const purchaseOrders = await PurchaseOrder.find(query)
+            .select('poNumber orderDate dueDate vendor.name grandAmount')
+            .skip((parseInt(page, 10) - 1) * parseInt(limit, 10))
+            .limit(parseInt(limit, 10));
+
+        // Transform purchase orders to include formatted fields
+        const transformedPurchaseOrders = purchaseOrders.map(po => ({
+            _id: po._id,
+            poNumber: po.poNumber,
+            orderDate: po.orderDate ? po.orderDate.toISOString().split('T')[0] : '-',
+            dueDate: po.dueDate ? po.dueDate.toISOString().split('T')[0] : '-',
+            vendorName: po.vendor?.name || '-',
+            grandAmount: po.grandAmount ? `${parseFloat(po.grandAmount).toFixed(2)}` : '0.00'
+        }));
+
+        res.status(200).json({
+            success: true,
+            message: 'Purchase orders retrieved successfully.',
+            data: {
+                purchaseOrders: transformedPurchaseOrders,
+                minGrandAmount: minGrandAmount ? parseFloat(minGrandAmount.grandAmount) : 0,
+                maxGrandAmount: maxGrandAmount ? parseFloat(maxGrandAmount.grandAmount) : 1000,
+                pagination: {
+                    totalPages: Math.ceil(totalPurchaseOrders / parseInt(limit, 10)),
+                    currentPage: parseInt(page, 10),
+                }
+            },
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to retrieve purchase orders. Please try again later.' });
+    }
+};
