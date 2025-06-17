@@ -64,7 +64,8 @@ exports.generatePurchaseOrder = async (req, res) => {
 exports.createPurchaseOrder = async (req, res) => {
   try {
     const user = req.user;
-    const po = req.body;
+    const po = JSON.parse(req.body.purchaseOrder); // because sent as string in FormData
+    const uploadedFiles = req.files || [];
 
     if (!user || !user.businessId || !user.id) {
       return res.status(400).json({ success: false, message: 'Invalid user data.' });
@@ -92,6 +93,15 @@ exports.createPurchaseOrder = async (req, res) => {
         });
       }
     }
+
+    // Create attachment metadata
+    const attachments = uploadedFiles.map((file) => ({
+      fileName: file.originalname,
+      filePath: file.path,
+      uploadedBy: user.id,
+      uploadedAt: new Date(),
+    }));
+
 
     // 4. Create the PurchaseOrder Document
     const newPO = new PurchaseOrder({
@@ -176,12 +186,7 @@ exports.createPurchaseOrder = async (req, res) => {
       dueAmount: mongoose.Types.Decimal128.fromString(po.dueAmount.toString()),
       deliveryTerms: po.deliveryTerms || '',
       termsAndConditions: po.termsAndConditions || '',
-      attachments: (po.attachments || []).map((file) => ({
-        fileName: file.fileName,
-        filePath: file.filePath,
-        uploadedBy: user.id,
-        uploadedAt: file.uploadedAt || Date.now(),
-      })),
+      attachments,
       createdBy: user.id,
       updatedBy: user.id,
       isDeleted: false,
