@@ -21,7 +21,7 @@ const purchaseOrderSchema = new mongoose.Schema({
     id: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', required: true },
     name: { type: String },
     gstin: { type: String },
-    gstStatus: { type: String, enum: ['Registered', 'Unregistered'] },
+    gstStatus: { type: String },
     state: { type: String },
     address: { type: String },
     phone: { type: String },
