@@ -293,3 +293,63 @@ exports.getPurchaseOrder = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to retrieve purchase orders. Please try again later.' });
     }
 };
+
+exports.getPurchaseOrderDetails = async (req, res) => {
+    try {
+        const user = req.user;
+
+        // Validate user object
+        if (!user || !user.businessId || !user.id) {
+            return res.status(401).json({ success: false, message: 'Unauthorized: Invalid user data.' });
+        }
+
+        const { purchaseOrderId } = req.params;
+
+        // Ensure purchaseOrderId is provided
+        if (!purchaseOrderId || !mongoose.isValidObjectId(purchaseOrderId)) {
+            return res.status(400).json({ success: false, message: 'Valid Purchase Order ID is required.' });
+        }
+
+        // Find the purchase order and ensure it belongs to the user's organization
+        const purchaseOrder = await PurchaseOrder.findOne({
+            _id: purchaseOrderId,
+            'business.id': user.businessId,
+            isDeleted: false
+        }).lean();
+
+        if (!purchaseOrder) {
+            return res.status(404).json({
+                success: false,
+                message: 'Purchase order not found or unauthorized access.'
+            });
+        }
+
+        // Optionally populate vendor details if needed
+        const vendor = await Vendor.findOne({ _id: purchaseOrder.vendor.id }).lean();
+        if (vendor) {
+            purchaseOrder.vendor = {
+                ...purchaseOrder.vendor,
+                gstin: vendor.taxDetails?.gstin || '',
+                gstStatus: vendor.taxDetails?.taxStatus || '',
+                state: vendor.taxDetails?.sourceState || '',
+                address: vendor.billingAddress?.addressLine1
+                    ? `${vendor.billingAddress.addressLine1}, ${vendor.billingAddress.city || ''}, ${vendor.billingAddress.state || ''}, ${vendor.billingAddress.country || ''}, ${vendor.billingAddress.postalCode || ''}`
+                    : '',
+                phone: vendor.phone || ''
+            };
+        }
+
+        // Return the purchase order details
+        res.status(200).json({
+            success: true,
+            data: purchaseOrder
+        });
+    } catch (error) {
+        console.error('Error fetching purchase order details:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching purchase order details.',
+            error: error.message
+        });
+    }
+};
