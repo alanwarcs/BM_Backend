@@ -1,5 +1,5 @@
 const express = require('express');
-const { generatePurchaseOrder, createPurchaseOrder, getPurchaseOrder, getPurchaseOrderDetails, viewAttachment, updatePurchaseOrder } = require('../controllers/PurchaseOrderController');
+const { generatePurchaseOrder, createPurchaseOrder, getPurchaseOrder, getPurchaseOrderDetails, viewAttachment, updatePurchaseOrder, deletePurchaseOrder } = require('../controllers/PurchaseOrderController');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 const uploadFile = require("../middlewares/uploadFile");
 
@@ -28,5 +28,8 @@ router.put('/:purchaseOrderId',
     authMiddleware, 
     uploadFile("purchase-orders", "attachments"),
     updatePurchaseOrder);
+
+// Route to delete purchase order by ID
+router.delete('/:purchaseOrderId', authMiddleware, deletePurchaseOrder);
 
 module.exports = router;

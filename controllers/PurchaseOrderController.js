@@ -65,11 +65,29 @@ exports.generatePurchaseOrder = async (req, res) => {
 exports.createPurchaseOrder = async (req, res) => {
   try {
     const user = req.user;
-    const po = JSON.parse(req.body.purchaseOrder); // because sent as string in FormData
     const uploadedFiles = req.files || [];
 
     if (!user || !user.businessId || !user.id) {
       return res.status(400).json({ success: false, message: 'Invalid user data.' });
+    }
+
+    // Parse purchase order
+    let po;
+    try {
+      po = JSON.parse(req.body.purchaseOrder);
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid purchase order data format.',
+      });
+    }
+
+    // Validate products array
+    if (!po.products || !Array.isArray(po.products) || po.products.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Products array is required and cannot be empty.',
+      });
     }
 
     // 1. Verify Organization Exists
@@ -79,6 +97,9 @@ exports.createPurchaseOrder = async (req, res) => {
     }
 
     // 2. Verify Vendor Exists
+    if (!mongoose.isValidObjectId(po.vendor.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid vendor ID.' });
+    }
     const vendorExists = await Vendor.findById(po.vendor.id);
     if (!vendorExists) {
       return res.status(404).json({ success: false, message: 'Vendor not found.' });
@@ -86,6 +107,12 @@ exports.createPurchaseOrder = async (req, res) => {
 
     // 3. Verify Each Product
     for (const product of po.products) {
+      if (!product.productId || !mongoose.isValidObjectId(product.productId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid Product',
+        });
+      }
       const productExists = await Product.findById(product.productId);
       if (!productExists) {
         return res.status(404).json({
@@ -201,7 +228,7 @@ exports.createPurchaseOrder = async (req, res) => {
     });
   } catch (error) {
     console.error('Error Creating Purchase Order:', error);
-    res.status(500).json({ message: 'Internal server error', error: error.message });
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
   }
 };
 
@@ -662,4 +689,69 @@ exports.viewAttachment = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+/**
+ * Delete Purchase Order.
+ * Deletes a Purchase Order by its ID, ensuring it belongs to the user's organization.
+ */
+exports.deletePurchaseOrder = async (req, res) => {
+    try {
+        const user = req.user;
+
+        // Ensure the user and their businessId are valid
+        if (!user || !user.businessId || !user.id) {
+            return res.status(400).json({ success: false, message: 'Invalid user data.' });
+        }
+
+        const { purchaseOrderId } = req.params;
+
+        // Ensure purchaseOrderId is provided and valid
+        if (!purchaseOrderId || !mongoose.isValidObjectId(purchaseOrderId)) {
+            return res.status(400).json({ success: false, message: 'Valid Purchase Order ID is required.' });
+        }
+
+        // Find the purchase order to ensure it exists and belongs to the user's organization
+        const purchaseOrder = await PurchaseOrder.findOne({
+            _id: purchaseOrderId,
+            'business.id': user.businessId,
+            isDeleted: false,
+        });
+
+        if (!purchaseOrder) {
+            return res.status(404).json({ success: false, message: 'Purchase order not found or unauthorized access.' });
+        }
+
+        // Delete associated attachment files from the server
+        if (purchaseOrder.attachments && purchaseOrder.attachments.length > 0) {
+            for (const attachment of purchaseOrder.attachments) {
+                const filePath = path.resolve(__dirname, '..', '..', attachment.filePath);
+                if (fs.existsSync(filePath)) {
+                    try {
+                        fs.unlinkSync(filePath);
+                    } catch (error) {
+                        console.error(`Error deleting file ${filePath}:`, error);
+                    }
+                }
+            }
+        }
+
+        // Soft delete the Purchase Order by setting isDeleted to true
+        await PurchaseOrder.updateOne(
+            { _id: purchaseOrderId },
+            { $set: { isDeleted: true, updatedBy: user.id, updatedAt: new Date() } }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Purchase order deleted successfully.',
+        });
+    } catch (error) {
+        console.error('Error deleting purchase order:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while deleting the purchase order.',
+            error: error.message,
+        });
+    }
 };
