@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+
+      .purchase-order {
+        width: 100%;
+        padding: 5mm;
+      }
+
+      h2 {
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        table-layout: fixed;
+      }
+
+      thead {
+        display: table-header-group;
+      }
+
+      tfoot {
+        display: table-footer-group;
+      }
+
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 2px;
+        font-size: 13px;
+        text-align: left;
+        word-wrap: break-word;
+        white-space: normal;
+      }
+
+      tr {
+        page-break-inside: avoid;
+      }
+
+      th {
+        background-color: #f2f2f2;
+      }
+
+      .header-table td {
+        vertical-align: top;
+        padding: 8px;
+      }
+
+      .company-info p,
+      .vendor-info p,
+      .bill-to p,
+      .ship-to p,
+      .order-details p {
+        margin: 4px 0;
+        font-size: 13px;
+      }
+
+      .subtotal-table td {
+        padding: 6px;
+      }
+
+      .subtotal-table td:first-child {
+        width: 60%;
+        vertical-align: top;
+      }
+
+      .subtotal {
+        font-weight: normal;
+        text-align: left;
+      }
+
+      .subtotal-table td:last-child {
+        text-align: right;
+      }
+
+      .product-description {
+        width: 30%;
+      }
+
+      .watermark-preview {
+        position: absolute;
+        top: 40%;
+        left: 30%;
+        font-size: 60px;
+        color: rgba(0, 0, 0, 0.08);
+        transform: rotate(-30deg);
+        z-index: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="purchase-order">
+      <div class="watermark-preview">PREVIEW</div>
+
+      <h2>Purchase Order</h2>
+
+      <!-- Header Table -->
+      <table class="header-table" border="1">
+        <tbody>
+          <tr>
+            <td colspan="6" rowspan="2" class="company-info">
+              <p><strong>{{business.name}}</strong></p>
+              <p>{{business.address}}</p>
+              <p>Phone: {{business.phone}}</p>
+              <p>Email: {{business.email}}</p>
+              <p><strong>GSTIN: {{business.gstin}}</strong></p>
+            </td>
+            <td colspan="4" class="order-details">
+              <p><strong>Order Number: {{poNumber}}</strong></p>
+              <p><strong>Reference Number: {{referenceNumber}}</strong></p>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="4" class="order-details">
+              <p><strong>Order Date: {{orderDate}}</strong></p>
+              <p><strong>Due Date: {{dueDate}}</strong></p>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="6" class="vendor-info">
+              <p><strong>Vendor To:</strong></p>
+              <p><strong>{{vendor.name}}</strong></p>
+              <p>{{vendor.address}}</p>
+              <p>Phone: {{vendor.phone}}</p>
+              <p><strong>GSTIN: {{vendor.gstin}}</strong></p>
+              <p><strong>Place of Supply: {{vendor.state}}</strong></p>
+            </td>
+            <td colspan="2" class="bill-to">
+              <p><strong>Bill To:</strong></p>
+              <p><strong>{{business.name}}</strong></p>
+              <p>{{address.billing}}</p>
+            </td>
+            <td colspan="2" class="ship-to">
+              <p><strong>Ship To:</strong></p>
+              <p><strong>{{business.name}}</strong></p>
+              <p>{{address.shipping}}</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Product Table -->
+      <table border="1">
+        <thead>
+          <tr>
+            <th style="width: 5%;">Sr No.</th>
+            <th class="width: 38%">Description</th>
+            <th style="width: 8%;">HSN/SAC</th>
+            <th style="width: 8%;">Rate</th>
+            <th style="width: 4%;">Qty</th>
+            <th style="width: 4%;">Unit</th>
+            {{hasGST}}
+            {{hasIGST}}
+            {{hasCustomTax}}
+            {{hasProductDiscount}}
+            <th style="width: 12%;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{products}}
+        </tbody>
+      </table>
+
+      <!-- Subtotal & Summary Table -->
+      <table class="subtotal-table" border="1">
+        <tbody>
+          <tr>
+            <td rowspan="{{subtotalRowSpan}}" style="text-align: left; vertical-align: top;">
+              <p><strong>Notes</strong></p>
+              <p>{{note}}</p>
+            </td>
+            <td class="subtotal">Subtotal (Excl. Tax & Discount)</td>
+            <td>₹{{subtotal}}</td>
+          </tr>
+          {{totalDiscount}}
+          <tr>
+            <td class="subtotal">Taxable Amount (After Discount)</td>
+            <td>₹{{taxableAmount}}</td>
+          </tr>
+          {{totalCGST}} {{totalSGST}} {{totalIGST}} {{totalCustomTax}} {{roundOff}}
+          <tr>
+            <td class="subtotal"><strong>Grand Total (Incl. Tax)</strong></td>
+            <td><strong>₹{{grandAmount}}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Terms Table -->
+      <table class="header-table" border="1">
+        <tbody>
+          <tr>
+            <td>
+              <p><strong>Payment Terms</strong></p>
+              <p>{{paymentStatus}}</p>
+            </td>
+            <td>
+              <p><strong>Delivery Terms</strong></p>
+              <p>{{deliveryTerms}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <p><strong>Terms and Conditions</strong></p>
+              <p>{{termsAndConditions}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align: center">
+              <p><strong>Authorized Signature</strong></p>
+              <p>_________________________</p>
+            </td>
+            <td style="text-align: center">
+              <p><strong>Vendor Signature</strong></p>
+              <p>__________________</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>

@@ -3,6 +3,7 @@ const PurchaseOrder = require('../models/PurchaseOrder');
 const Vendor = require('../models/Vendor');
 const Product = require('../models/Items');
 const Organization = require('../models/Organization');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
@@ -675,7 +676,6 @@ exports.viewAttachment = async (req, res) => {
     fileStream.pipe(res);
 
     fileStream.on('error', (error) => {
-      console.error('Error streaming file:', error);
       res.status(500).json({
         success: false,
         message: 'Error streaming file.',
@@ -696,62 +696,327 @@ exports.viewAttachment = async (req, res) => {
  * Deletes a Purchase Order by its ID, ensuring it belongs to the user's organization.
  */
 exports.deletePurchaseOrder = async (req, res) => {
-    try {
-        const user = req.user;
+  try {
+    const user = req.user;
 
-        // Ensure the user and their businessId are valid
-        if (!user || !user.businessId || !user.id) {
-            return res.status(400).json({ success: false, message: 'Invalid user data.' });
-        }
-
-        const { purchaseOrderId } = req.params;
-
-        // Ensure purchaseOrderId is provided and valid
-        if (!purchaseOrderId || !mongoose.isValidObjectId(purchaseOrderId)) {
-            return res.status(400).json({ success: false, message: 'Valid Purchase Order ID is required.' });
-        }
-
-        // Find the purchase order to ensure it exists and belongs to the user's organization
-        const purchaseOrder = await PurchaseOrder.findOne({
-            _id: purchaseOrderId,
-            'business.id': user.businessId,
-            isDeleted: false,
-        });
-
-        if (!purchaseOrder) {
-            return res.status(404).json({ success: false, message: 'Purchase order not found or unauthorized access.' });
-        }
-
-        // Delete associated attachment files from the server
-        if (purchaseOrder.attachments && purchaseOrder.attachments.length > 0) {
-            for (const attachment of purchaseOrder.attachments) {
-                const filePath = path.resolve(__dirname, '..', '..', attachment.filePath);
-                if (fs.existsSync(filePath)) {
-                    try {
-                        fs.unlinkSync(filePath);
-                    } catch (error) {
-                        console.error(`Error deleting file ${filePath}:`, error);
-                    }
-                }
-            }
-        }
-
-        // Soft delete the Purchase Order by setting isDeleted to true
-        await PurchaseOrder.updateOne(
-            { _id: purchaseOrderId },
-            { $set: { isDeleted: true, updatedBy: user.id, updatedAt: new Date() } }
-        );
-
-        res.status(200).json({
-            success: true,
-            message: 'Purchase order deleted successfully.',
-        });
-    } catch (error) {
-        console.error('Error deleting purchase order:', error);
-        res.status(500).json({
-            success: false,
-            message: 'An error occurred while deleting the purchase order.',
-            error: error.message,
-        });
+    // Ensure the user and their businessId are valid
+    if (!user || !user.businessId || !user.id) {
+      return res.status(400).json({ success: false, message: 'Invalid user data.' });
     }
+
+    const { purchaseOrderId } = req.params;
+
+    // Ensure purchaseOrderId is provided and valid
+    if (!purchaseOrderId || !mongoose.isValidObjectId(purchaseOrderId)) {
+      return res.status(400).json({ success: false, message: 'Valid Purchase Order ID is required.' });
+    }
+
+    // Find the purchase order to ensure it exists and belongs to the user's organization
+    const purchaseOrder = await PurchaseOrder.findOne({
+      _id: purchaseOrderId,
+      'business.id': user.businessId,
+      isDeleted: false,
+    });
+
+    if (!purchaseOrder) {
+      return res.status(404).json({ success: false, message: 'Purchase order not found or unauthorized access.' });
+    }
+
+    // Delete associated attachment files from the server
+    if (purchaseOrder.attachments && purchaseOrder.attachments.length > 0) {
+      for (const attachment of purchaseOrder.attachments) {
+        const filePath = path.resolve(__dirname, '..', '..', attachment.filePath);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (error) {
+            console.error(`Error deleting file ${filePath}:`, error);
+          }
+        }
+      }
+    }
+
+    // Soft delete the Purchase Order by setting isDeleted to true
+    await PurchaseOrder.updateOne(
+      { _id: purchaseOrderId },
+      { $set: { isDeleted: true, updatedBy: user.id, updatedAt: new Date() } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Purchase order deleted successfully.',
+    });
+  } catch (error) {
+    console.error('Error deleting purchase order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while deleting the purchase order.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Download Purchase Order as PDF
+ */
+exports.downloadPurchaseOrder = async (req, res) => {
+  try {
+    const user = req.user;
+    const { purchaseOrderId } = req.params;
+
+    // Validate user and purchaseOrderId
+    if (!user || !user.businessId || !user.id) {
+      return res.status(400).json({ success: false, message: 'Invalid user data.' });
+    }
+    if (!purchaseOrderId || !mongoose.isValidObjectId(purchaseOrderId)) {
+      return res.status(400).json({ success: false, message: 'Valid Purchase Order ID is required.' });
+    }
+
+    // Fetch the purchase order details
+    const purchaseOrder = await PurchaseOrder.findOne({
+      _id: purchaseOrderId,
+      'business.id': user.businessId,
+      isDeleted: false,
+    })
+      .populate('vendor.id', 'name gstin state address phone')
+      .populate('business.id', 'name gstin state address phone email')
+      .lean();
+
+    if (!purchaseOrder) {
+      return res.status(404).json({ success: false, message: 'Purchase order not found.' });
+    }
+
+    // Verify populated fields
+    if (!purchaseOrder.business?.id || !purchaseOrder.vendor?.id) {
+      return res.status(500).json({ success: false, message: 'Missing vendor or business data.' });
+    }
+
+    // Read the HTML template
+    const templatePath = path.join(__dirname, '..', 'templates', 'potemplates.html');
+    if (!fs.existsSync(templatePath)) {
+      return res.status(500).json({ success: false, message: 'Template file not found.' });
+    }
+    let htmlTemplate = fs.readFileSync(templatePath, 'utf8');
+
+    // Prepare data for template
+    const formatDate = (date) => (date ? new Date(date).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }) : 'N/A');
+    const formatCurrency = (amount) => {
+      if (amount === undefined || amount === null) return '0.00';
+      const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount.toString());
+      return isNaN(num) ? '0.00' : num.toFixed(2);
+    };
+
+    // Calculate tax totals
+    let totalCGST = 0,
+      totalSGST = 0,
+      totalIGST = 0,
+      totalCustomTax = 0;
+    purchaseOrder.products.forEach((product) => {
+      product.taxes.forEach((tax) => {
+        const taxAmount = parseFloat(tax.amount?.toString() || 0);
+
+        if (tax.type === 'GST') {
+          if (tax.subType === 'CGST') totalCGST += taxAmount;
+          else if (tax.subType === 'SGST') totalSGST += taxAmount;
+        } else if (tax.type === 'IGST') {
+          totalIGST += taxAmount;
+        } else {
+          totalCustomTax += taxAmount;
+        }
+      });
+    });
+
+    // Calculate subtotal row span and tax columns
+    const hasGST = totalCGST > 0 || totalSGST > 0;
+    const hasIGST = totalIGST > 0;
+    const hasCustomTax = totalCustomTax > 0;
+    const hasProductDiscount = purchaseOrder.products.some((p) => parseFloat(p.inProductDiscount?.toString() || 0) > 0);
+    const subtotalRowSpan =
+      2 + // Subtotal + Taxable Amount
+      (parseFloat(purchaseOrder.totalAmountOfDiscount || 0) > 0 ? 1 : 0) +
+      (hasGST ? 2 : 0) +
+      (hasIGST ? 1 : 0) +
+      (hasCustomTax ? 1 : 0) +
+      (purchaseOrder.roundOff ? 1 : 0) +
+      1; // Grand Total
+
+
+    // Generate product rows
+    const productsHtml = purchaseOrder.products
+      .map((product, index) => {
+        let taxHtml = '';
+        if (hasGST) {
+          const cgst = product.taxes.find((t) => t.type === 'GST' && t.subType === 'CGST') || { rate: 0, amount: '0' };
+          const sgst = product.taxes.find((t) => t.type === 'GST' && t.subType === 'SGST') || { rate: 0, amount: '0' };
+          taxHtml += `
+            <td tyle="text-align:end;">₹${formatCurrency(cgst.amount)} (${cgst.rate}%)</td>
+            <td style="text-align:end;">₹${formatCurrency(sgst.amount)} (${sgst.rate}%)</td>
+          `;
+        }
+        if (hasIGST) {
+          const igst = product.taxes.find((t) => t.type === 'IGST') || { rate: 0, amount: '0' };
+          taxHtml += `<td style="text-align:end;">₹${formatCurrency(igst.amount)} (${igst.rate}%)</td>`;
+        }
+        if (hasCustomTax) {
+          const customTax = product.taxes.find((t) => t.type !== 'CGST' && t.type !== 'SGST' && t.type !== 'IGST') || { rate: 0, amount: '0' };
+          taxHtml += `<td style="text-align:end;">₹${formatCurrency(customTax.amount)} (${customTax.rate}%)</td>`;
+        }
+        const discountHtml = hasProductDiscount ? `<td style="text-align:end;">₹${formatCurrency(product.inProductDiscount)}</td>` : '';
+        return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${product.productName || 'N/A'}</td>
+          <td>${product.hsnOrSacCode || 'N/A'}</td>
+          <td style="text-align:end; white-space: nowrap;">₹${formatCurrency(product.rate)}</td>
+          <td>${product.quantity || 0}</td>
+          <td>${product.unit || 'N/A'}</td>
+          ${taxHtml}
+          ${discountHtml}
+          <td class="numeric" style="text-align:end; white-space: nowrap;">₹${formatCurrency(product.totalPrice)}</td>
+        </tr>
+      `;
+      })
+      .join('');
+
+    // Generate tax and discount rows
+    let totalDiscountHtml = '';
+    const discountAmount = formatCurrency(purchaseOrder.totalAmountOfDiscount);
+    const discountValue = formatCurrency(purchaseOrder.discount);
+
+    // Check if it's a flat discount and whether it's percentage-based
+    if (parseFloat(purchaseOrder.totalAmountOfDiscount || 0) > 0) {
+      if (purchaseOrder.discountType === 'Flat') {
+        const isPercent = purchaseOrder.discountValueType === 'Percent';
+        totalDiscountHtml = `
+      <tr>
+        <td class="subtotal" style="text-align: start;">Discount</td>
+        <td style="text-align: end;">
+          ${discountValue}${isPercent ? '%' : ''} (-₹${discountAmount})
+        </td>
+      </tr>`;
+      } else {
+        totalDiscountHtml = `
+      <tr>
+        <td class="subtotal" style="text-align: start;">Discount</td>
+        <td style="text-align: end;">₹${discountAmount}</td>
+      </tr>`;
+      }
+    }
+    const totalCGSTHtml = hasGST
+      ? `<tr>
+
+          <td class="subtotal" style="text-align: start;">Total CGST</td>
+          <td style="text-align: end;">₹${formatCurrency(totalCGST)}</td>
+        </tr>`
+      : '';
+
+    const totalSGSTHtml = hasGST
+      ? `<tr>
+
+          <td class="subtotal" style="text-align: start;">Total SGST</td>
+          <td style="text-align: end;">₹${formatCurrency(totalSGST)}</td>
+        </tr>`
+      : '';
+
+    const totalIGSTHtml = hasIGST
+      ? `<tr>
+
+          <td class="subtotal" style="text-align: start;">Total IGST</td>
+          <td style="text-align: end;">₹${formatCurrency(totalIGST)}</td>
+        </tr>`
+      : '';
+
+    const totalCustomTaxHtml = hasCustomTax
+      ? `<tr>
+          <td class="subtotal" style="text-align: start;">Total Custom Tax</td>
+          <td style="text-align: end;">₹${formatCurrency(totalCustomTax)}</td>
+        </tr>`
+      : '';
+
+    const roundOffHtml = purchaseOrder.roundOff
+      ? `<tr>
+          <td class="subtotal" style="text-align: start;">Round Off</td>
+          <td style="text-align: end;">₹${formatCurrency(purchaseOrder.roundOffAmount)}</td>
+        </tr>`
+      : '';
+
+
+    // Replace placeholders in template
+    htmlTemplate = htmlTemplate
+      .replace(/{{business.name}}/g, purchaseOrder.business.name || 'N/A')
+      .replace(/{{business.address}}/g, purchaseOrder.business.address || 'N/A')
+      .replace(/{{business.phone}}/g, purchaseOrder.business.phone || 'N/A')
+      .replace(/{{business.email}}/g, purchaseOrder.business.email || 'N/A')
+      .replace(/{{business.gstin}}/g, purchaseOrder.business.gstin || 'N/A')
+      .replace('{{poNumber}}', purchaseOrder.poNumber || 'N/A')
+      .replace('{{referenceNumber}}', purchaseOrder.referenceNumber || '-')
+      .replace('{{orderDate}}', formatDate(purchaseOrder.orderDate))
+      .replace('{{dueDate}}', formatDate(purchaseOrder.dueDate))
+      .replace('{{vendor.name}}', purchaseOrder.vendor.name || 'N/A')
+      .replace('{{vendor.address}}', purchaseOrder.vendor.address || 'N/A')
+      .replace('{{vendor.phone}}', purchaseOrder.vendor.phone || 'N/A')
+      .replace('{{vendor.gstin}}', purchaseOrder.vendor.gstin || 'N/A')
+      .replace('{{vendor.state}}', purchaseOrder.vendor.state || 'N/A')
+      .replace('{{address.billing}}', purchaseOrder.address?.billing || 'N/A')
+      .replace('{{address.shipping}}', purchaseOrder.address?.shipping || 'N/A')
+      .replace('{{hasGST}}', hasGST ? '<th style="width: 8%;">CGST</th><th style="width: 8%;">SGST</th>' : '')
+      .replace('{{hasIGST}}', hasIGST ? '<th style="width: 8%;">IGST</th>' : '')
+      .replace('{{hasCustomTax}}', hasCustomTax ? '<th style="width: 8%;">Custom Tax</th>' : '')
+      .replace('{{hasProductDiscount}}', hasProductDiscount ? '<th style="width: 8%;">Disc.</th>' : '')
+      .replace('{{products}}', productsHtml)
+      .replace('{{subtotalRowSpan}}', subtotalRowSpan)
+      .replace('{{note}}', purchaseOrder.note || 'N/A')
+      .replace('{{subtotal}}', formatCurrency(purchaseOrder.subtotal))
+      .replace('{{totalDiscount}}', totalDiscountHtml)
+      .replace('{{taxableAmount}}', formatCurrency(purchaseOrder.totalBeforeDiscount))
+      .replace('{{totalCGST}}', totalCGSTHtml)
+      .replace('{{totalSGST}}', totalSGSTHtml)
+      .replace('{{totalIGST}}', totalIGSTHtml)
+      .replace('{{totalCustomTax}}', totalCustomTaxHtml)
+      .replace('{{roundOff}}', roundOffHtml)
+      .replace('{{grandAmount}}', formatCurrency(purchaseOrder.grandAmount))
+      .replace('{{paymentStatus}}', purchaseOrder.paymentStatus || 'N/A')
+      .replace('{{deliveryTerms}}', purchaseOrder.deliveryTerms || 'N/A')
+      .replace('{{termsAndConditions}}', purchaseOrder.termsAndConditions || 'N/A');
+
+    // Launch Puppeteer and generate PDF
+    let browser;
+    try {
+      browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      const page = await browser.newPage();
+      await page.setContent(htmlTemplate, { waitUntil: 'networkidle0' });
+      const pdfFileName = `${purchaseOrder.poNumber}.pdf`;
+      const pdfPath = path.join(__dirname, pdfFileName);
+      await page.pdf({
+        path: pdfPath,
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+      });
+
+      // Send the PDF as a response for inline display
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${pdfFileName}"`);
+      res.sendFile(pdfPath, (err) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: 'Failed to send PDF', error: err.message });
+        }
+        // Delete the file after sending
+        fs.unlink(pdfPath, (unlinkErr) => {
+          if (unlinkErr) console.error('Error deleting PDF file:', unlinkErr);
+        });
+      });
+      await browser.close();
+    } catch (puppeteerError) {
+      if (browser) await browser.close();
+      throw new Error(`Failed to generate PDF with Puppeteer: ${puppeteerError.message}`);
+    }
+  } catch (error) {
+    console.error('Error generating PDF:', error.stack);
+    res.status(500).json({ success: false, message: 'Failed to generate PDF', error: error.message });
+  }
 };
