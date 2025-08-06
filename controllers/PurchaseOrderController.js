@@ -853,7 +853,7 @@ exports.downloadPurchaseOrder = async (req, res) => {
           const cgst = product.taxes.find((t) => t.type === 'GST' && t.subType === 'CGST') || { rate: 0, amount: '0' };
           const sgst = product.taxes.find((t) => t.type === 'GST' && t.subType === 'SGST') || { rate: 0, amount: '0' };
           taxHtml += `
-            <td tyle="text-align:end;">₹${formatCurrency(cgst.amount)} (${cgst.rate}%)</td>
+            <td style="text-align:end;">₹${formatCurrency(cgst.amount)} (${cgst.rate}%)</td>
             <td style="text-align:end;">₹${formatCurrency(sgst.amount)} (${sgst.rate}%)</td>
           `;
         }
@@ -865,15 +865,27 @@ exports.downloadPurchaseOrder = async (req, res) => {
           const customTax = product.taxes.find((t) => t.type !== 'CGST' && t.type !== 'SGST' && t.type !== 'IGST') || { rate: 0, amount: '0' };
           taxHtml += `<td style="text-align:end;">₹${formatCurrency(customTax.amount)} (${customTax.rate}%)</td>`;
         }
-        const discountHtml = hasProductDiscount ? `<td style="text-align:end;">₹${formatCurrency(product.inProductDiscount)}</td>` : '';
+        let discountDisplay = '';
+
+        if (hasProductDiscount) {
+          const isPercent = product.inProductDiscountValueType === 'Percent';
+          discountDisplay = isPercent
+            ? `${formatCurrency(product.inProductDiscount)}%`
+            : `₹${formatCurrency(product.inProductDiscount)}`;
+        }
+
+        const discountHtml = hasProductDiscount
+          ? `<td style="text-align:end;">${discountDisplay}</td>`
+          : '';
+
         return `
         <tr>
           <td>${index + 1}</td>
           <td>${product.productName || 'N/A'}</td>
           <td>${product.hsnOrSacCode || 'N/A'}</td>
           <td style="text-align:end; white-space: nowrap;">₹${formatCurrency(product.rate)}</td>
-          <td>${product.quantity || 0}</td>
-          <td>${product.unit || 'N/A'}</td>
+          <td style="text-align:end;">${product.quantity || 0}</td>
+          <td style="text-align:end; white-space: nowrap;">${product.unit || 'N/A'}</td>
           ${taxHtml}
           ${discountHtml}
           <td class="numeric" style="text-align:end; white-space: nowrap;">₹${formatCurrency(product.totalPrice)}</td>
@@ -887,7 +899,6 @@ exports.downloadPurchaseOrder = async (req, res) => {
     const discountAmount = formatCurrency(purchaseOrder.totalAmountOfDiscount);
     const discountValue = formatCurrency(purchaseOrder.discount);
 
-    // Check if it's a flat discount and whether it's percentage-based
     if (parseFloat(purchaseOrder.totalAmountOfDiscount || 0) > 0) {
       if (purchaseOrder.discountType === 'Flat') {
         const isPercent = purchaseOrder.discountValueType === 'Percent';
@@ -906,6 +917,7 @@ exports.downloadPurchaseOrder = async (req, res) => {
       </tr>`;
       }
     }
+
     const totalCGSTHtml = hasGST
       ? `<tr>
 
@@ -995,7 +1007,7 @@ exports.downloadPurchaseOrder = async (req, res) => {
         path: pdfPath,
         format: 'A4',
         printBackground: true,
-        margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+        margin: { top: '5mm', right: '2mm', bottom: '5mm', left: '2mm' },
       });
 
       // Send the PDF as a response for inline display
